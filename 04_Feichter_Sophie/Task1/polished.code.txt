@@ -1,0 +1,301 @@
+﻿// --- Global Variables ---
+let img, originalImg;
+let vectorGraphics;
+
+
+let fileInput, shapeSelector, styleSelector;
+let resolutionSlider, sizeSlider, scatterSlider, rotationSlider;
+let contrastSlider; 
+let dotColorPicker, bgColorPicker, opacitySlider;
+let pngSaveButton;
+
+
+let resolution = 10;
+let shapeScale = 0.9; 
+let scatterAmount = 0;
+let rotationVal = 0; 
+let rasterStyle = 'GRID';
+
+
+// --- Layout ---
+const CANVAS_WIDTH = 1100; 
+const MENU_HEIGHT = 180; 
+const PADDING_OUTER = 20;
+
+
+let menuDiv;
+
+
+function setup() {
+    createCanvas(CANVAS_WIDTH, 600 + MENU_HEIGHT);
+    noLoop();
+
+
+    menuDiv = createDiv();
+    menuDiv.style('position', 'fixed');
+    menuDiv.style('bottom', '0');
+    menuDiv.style('left', '0');
+    menuDiv.style('width', '100%');
+    menuDiv.style('height', MENU_HEIGHT + 'px');
+    menuDiv.style('background', '#1E1E1E');
+    menuDiv.style('padding', '15px');
+    menuDiv.style('display', 'grid');
+    menuDiv.style('grid-template-columns', 'repeat(5, 1fr)'); 
+    menuDiv.style('grid-template-rows', 'repeat(2, 1fr)');
+    menuDiv.style('gap', '15px');
+    menuDiv.style('box-sizing', 'border-box');
+    menuDiv.style('font-family', 'sans-serif');
+    menuDiv.style('color', '#fff');
+    menuDiv.style('border-top', '2px solid #333');
+
+
+    // --- ZEILE 1 ---
+    createMenuBlock('1. IMAGE', b => {
+        fileInput = createFileInput(handleFile);
+        fileInput.style('width', '100%');
+        fileInput.parent(b);
+    });
+
+
+    createMenuBlock('2. STYLE', b => {
+        styleSelector = createSelect();
+        ['GRID', 'OFFSET', 'PHOTO COLORS', 'RAINBOW OMBRE', 'CHESS', 'SPIRAL'].forEach(s => styleSelector.option(s));
+        styleSelector.changed(() => { rasterStyle = styleSelector.value(); triggerRedraw(); });
+        styleSelector.style('width', '100%');
+        styleSelector.parent(b);
+    });
+
+
+    createMenuBlock('3. SHAPE', b => {
+        shapeSelector = createSelect();
+        ['DOTS','LINES','SQUARES','HEARTS','CROSSES','STARS','TRIANGLES']
+            .forEach(s => shapeSelector.option(s));
+        shapeSelector.changed(triggerRedraw);
+        shapeSelector.style('width', '100%');
+        shapeSelector.parent(b);
+    });
+
+
+    createMenuBlock('4. DENSITY', b => {
+        resolutionSlider = createSlider(4, 40, resolution, 1);
+        resolutionSlider.input(() => { resolution = resolutionSlider.value(); triggerRedraw(); });
+        resolutionSlider.style('width', '100%');
+        resolutionSlider.parent(b);
+    });
+
+
+    createMenuBlock('5. SIZE', b => {
+        sizeSlider = createSlider(0.1, 2.5, 0.9, 0.1);
+        sizeSlider.input(() => { shapeScale = sizeSlider.value(); triggerRedraw(); });
+        sizeSlider.style('width', '100%');
+        sizeSlider.parent(b);
+    });
+
+
+    // --- ZEILE 2 ---
+    createMenuBlock('6. CONTRAST', b => {
+        contrastSlider = createSlider(-100, 100, 0, 1);
+        contrastSlider.input(triggerRedraw); 
+        contrastSlider.style('width', '100%');
+        contrastSlider.parent(b);
+    });
+
+
+    createMenuBlock('7. RANDOM / SCATTER', b => {
+        scatterSlider = createSlider(0, 20, 0, 0.5);
+        scatterSlider.input(() => { scatterAmount = scatterSlider.value(); triggerRedraw(); });
+        scatterSlider.style('width', '100%');
+        scatterSlider.parent(b);
+    });
+
+
+    createMenuBlock('8. ROTATION', b => {
+        rotationSlider = createSlider(0, 360, 0, 1);
+        rotationSlider.input(() => { rotationVal = rotationSlider.value(); triggerRedraw(); });
+        rotationSlider.style('width', '100%');
+        rotationSlider.parent(b);
+    });
+
+
+    createMenuBlock('9. COLORS & OPACITY', b => {
+        let pickerRow = createDiv().style('display', 'flex').style('gap', '10px').style('margin-bottom', '5px').parent(b);
+        dotColorPicker = createColorPicker('#000000');
+        dotColorPicker.changed(triggerRedraw);
+        dotColorPicker.size(45, 25);
+        dotColorPicker.parent(pickerRow);
+
+
+        bgColorPicker = createColorPicker('#ffffff');
+        bgColorPicker.changed(triggerRedraw);
+        bgColorPicker.size(45, 25);
+        bgColorPicker.parent(pickerRow);
+
+
+        opacitySlider = createSlider(0, 255, 255, 1);
+        opacitySlider.input(triggerRedraw);
+        opacitySlider.style('width', '100%');
+        opacitySlider.parent(b);
+    });
+
+
+    createMenuBlock('10. EXPORT', b => {
+        pngSaveButton = createButton('SAVE PNG');
+        pngSaveButton.mousePressed(savePNG);
+        pngSaveButton.style('background', '#007AFF');
+        pngSaveButton.style('color', '#fff');
+        pngSaveButton.style('border', 'none');
+        pngSaveButton.style('padding', '8px');
+        pngSaveButton.style('border-radius', '4px');
+        pngSaveButton.style('cursor', 'pointer');
+        pngSaveButton.style('width', '100%');
+        pngSaveButton.parent(b);
+    });
+}
+
+
+function createMenuBlock(label, content) {
+    const b = createDiv();
+    b.style('display','flex').style('flex-direction','column');
+    b.parent(menuDiv);
+    createDiv(label).style('font-size', '10px').style('margin-bottom', '8px').style('color', '#888').style('font-weight', 'bold').parent(b);
+    content(b);
+}
+
+
+function triggerRedraw() { if (originalImg) loop(); }
+
+
+function handleFile(file) {
+    if (file.type !== 'image') return;
+    loadImage(file.data, i => { 
+        originalImg = i; 
+        img = i;
+        vectorGraphics = createGraphics(img.width, img.height);
+        vectorGraphics.image(img, 0, 0);
+        vectorGraphics.filter(GRAY);
+        resizeCanvas(CANVAS_WIDTH, img.height + PADDING_OUTER * 2 + MENU_HEIGHT);
+        triggerRedraw(); 
+    });
+}
+
+
+function getAdjustedBrightness(val) {
+    let contrast = contrastSlider.value();
+    let factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+    return factor * (val - 128) + 128;
+}
+
+
+function drawShape(g, x, y, s, b, customColor) {
+    const m = shapeSelector.value();
+    let baseCol = customColor ? customColor : dotColorPicker.color();
+    let c = color(baseCol);
+    c.setAlpha(opacitySlider.value()); 
+    
+    g.fill(c);
+    g.noStroke(); 
+    
+    let offX = random(-scatterAmount, scatterAmount);
+    let offY = random(-scatterAmount, scatterAmount);
+    
+    g.push();
+    g.translate(x + offX, y + offY);
+    g.rotate(radians(rotationVal));
+
+
+    if (m === 'DOTS') g.ellipse(0, 0, s);
+    else if (m === 'LINES') {
+        g.stroke(c);
+        g.rotate(map(b, 0, 255, 0, PI));
+        g.line(-s/2, 0, s/2, 0);
+    }
+    else if (m === 'SQUARES') g.rect(-s/2, -s/2, s, s);
+    else if (m === 'CROSSES') { 
+        g.stroke(c);
+        g.line(-s/2, 0, s/2, 0); 
+        g.line(0, -s/2, 0, s/2); 
+    }
+    else if (m === 'TRIANGLES') g.triangle(0, -s/2, -s/2, s/2, s/2, s/2);
+    else if (m === 'STARS') star(g, 0, 0, s*0.2, s*0.5, 5);
+    else if (m === 'HEARTS') heart(g, 0, 0, s*0.6);
+    g.pop();
+}
+
+
+function renderGraphics(g) {
+    let target = g ? g : this;
+    if (g) g.background(bgColorPicker.color());
+    else background(bgColorPicker.color());
+
+
+    randomSeed(99);
+    let rowCount = 0;
+    for (let y = 0; y < img.height; y += resolution) {
+        let xOffset = (rasterStyle === 'OFFSET' && rowCount % 2 === 1) ? resolution / 2 : 0;
+        if (rasterStyle === 'SPIRAL') xOffset = sin(y * 0.05) * resolution;
+
+
+        for (let x = 0; x < img.width; x += resolution) {
+            if (rasterStyle === 'CHESS' && (floor(x/resolution) + rowCount) % 2 === 0) continue;
+
+
+            let pixelColor = vectorGraphics.get(x, y)[0];
+            let b = getAdjustedBrightness(pixelColor);
+            let s = map(b, 0, 255, resolution * shapeScale, 0);
+            
+            if (s > 0.5) {
+                let drawX = x + resolution/2 + xOffset;
+                let drawY = y + resolution/2;
+                let customCol = null;
+
+
+                if (rasterStyle === 'RAINBOW OMBRE') {
+                    target.push(); target.colorMode(HSB, 360, 100, 100);
+                    customCol = target.color(map(x + y, 0, img.width + img.height, 0, 360), 80, 90);
+                    target.pop();
+                } else if (rasterStyle === 'PHOTO COLORS') {
+                    customCol = originalImg.get(x, y);
+                }
+
+
+                if (!g) drawShape(target, drawX + PADDING_OUTER, drawY + PADDING_OUTER, s, b, customCol);
+                else drawShape(target, drawX, drawY, s, b, customCol);
+            }
+        }
+        rowCount++;
+    }
+}
+
+
+function savePNG() {
+    if (!originalImg) return;
+    let g = createGraphics(originalImg.width, originalImg.height);
+    renderGraphics(g);
+    save(g, 'raster_art_pro.png');
+}
+
+
+function draw() {
+    if (!originalImg) return;
+    renderGraphics(null);
+    noLoop();
+}
+
+
+function star(g, x, y, r1, r2, n) {
+    g.beginShape();
+    for (let i = 0; i < TWO_PI; i += TWO_PI / n) {
+        g.vertex(x + cos(i) * r2, y + sin(i) * r2);
+        g.vertex(x + cos(i + PI / n) * r1, y + sin(i + PI / n) * r1);
+    }
+    g.endShape(CLOSE);
+}
+
+
+function heart(g, x, y, s) {
+    g.beginShape();
+    g.vertex(x, y);
+    g.bezierVertex(x - s, y - s, x - s * 1.5, y + s / 3, x, y + s);
+    g.bezierVertex(x + s * 1.5, y + s / 3, x + s, y - s, x, y);
+    g.endShape(CLOSE);
+}

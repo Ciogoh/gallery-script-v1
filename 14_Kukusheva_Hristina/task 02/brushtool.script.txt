@@ -1,0 +1,70 @@
+let currentTool = "brush";
+let brushSize = 10;
+let colorPicker;
+let sizeSlider;
+
+let canvasW = 800;
+let canvasH = 600; // 4:3
+
+function setup() {
+  // --- CREA PRIMA LA UI, FUORI DAL CANVAS ---
+  createP("Strumenti:").style("margin: 5px 0 0 10px");
+
+  createButton("Brush")
+    .parent(document.body)
+    .style("margin-left", '10px')
+    .mousePressed(() => currentTool = "brush");
+
+  createButton("Eraser")
+    .parent(document.body)
+    .style("margin-left", '10px')
+    .mousePressed(() => currentTool = "eraser");
+
+  colorPicker = createColorPicker("#ff0000");
+  colorPicker.parent(document.body);
+  colorPicker.style("margin-left", "10px");
+
+  sizeSlider = createSlider(1, 60, 10);
+  sizeSlider.parent(document.body);
+  sizeSlider.style("margin-left", "10px");
+
+  createButton("Clear")
+    .parent(document.body)
+    .style("margin-left", '10px')
+    .mousePressed(() => background(255));
+
+  createButton("Save PNG")
+    .parent(document.body)
+    .style("margin-left", '10px')
+    .mousePressed(() => saveCanvas("disegno", "png"));
+
+  // --- CANVAS SOTTO LA UI ---
+  createCanvas(canvasW, canvasH);
+  background(255);
+}
+
+function draw() {
+  brushSize = sizeSlider.value();
+
+  if (mouseIsPressed && mouseY > 0) {
+    if (currentTool === "brush") {
+      drawBrush(mouseX, mouseY, pmouseX, pmouseY);
+    } else if (currentTool === "eraser") {
+      eraseTool(mouseX, mouseY, pmouseX, pmouseY);
+    }
+  }
+}
+
+// --- BRUSH FLUIDO ---
+function drawBrush(x, y, px, py) {
+  stroke(colorPicker.value());
+  strokeWeight(brushSize);
+  line(px, py, x, y);
+}
+
+// --- ERASER ---
+function eraseTool(x, y, px, py) {
+  stroke(255);
+  strokeWeight(brushSize + 5);
+  line(px, py, x, y);
+}

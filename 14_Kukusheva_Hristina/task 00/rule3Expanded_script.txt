@@ -1,0 +1,73 @@
+let btnGenerate;
+let btnSave;
+
+function setup() {
+  createCanvas(800, 800);
+  pixelDensity(2);
+
+  // Bottone per rigenerare la composizione
+  btnGenerate = createButton("Rigenera forme");
+  btnGenerate.position(10, height + 10);
+  btnGenerate.mousePressed(drawScene);
+
+  // Bottone per salvare manualmente
+  btnSave = createButton("Salva PNG");
+  btnSave.position(150, height + 10);
+  btnSave.mousePressed(() => saveCanvas("forme_geometriche", "png"));
+
+  drawScene();
+}
+
+function draw() {
+  // Non serve ridisegnare continuamente
+}
+
+// --- FUNZIONE PRINCIPALE ---
+function drawScene() {
+  background(255);
+
+  let numShapes = 500;
+
+  for (let i = 0; i < numShapes; i++) {
+    // Posizione casuale
+    let x = random(width);
+    let y = random(height);
+
+    // Colore rosa casuale
+    let r = 255;
+    let g = random(120, 200);
+    let b = random(180, 255);
+    fill(r, g, b);
+    noStroke();
+
+    // Dimensione casuale
+    let size = random(10, 40);
+
+    // Tipo di forma casuale
+    let type = floor(random(3)); // 0 = cerchio, 1 = quadrato, 2 = triangolo
+
+    if (type === 0) {
+      // Cerchio
+      circle(x, y, size);
+
+    } else if (type === 1) {
+      // Quadrato
+      rectMode(CENTER);
+      square(x, y, size);
+
+    } else if (type === 2) {
+      // Triangolo
+      drawTriangle(x, y, size);
+    }
+  }
+}
+
+// --- FUNZIONE PER TRIANGOLO ---
+function drawTriangle(x, y, size) {
+  let h = size * 0.866; // altezza triangolo equilatero
+  triangle(
+    x, y - h / 2,
+    x - size / 2, y + h / 2,
+    x + size / 2, y + h / 2
+  );
+}

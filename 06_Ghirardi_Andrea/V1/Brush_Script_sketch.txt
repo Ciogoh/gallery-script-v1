@@ -1,0 +1,504 @@
+// ============================================
+// CHEMICAL REACTION BRUSH - p5.js Editor Version
+// Gray-Scott Reaction-Diffusion Algorithm
+// ============================================
+// This implementation simulates the chemical 
+// reaction between two substances A and B:
+// A + 2B → 3B (autocatalytic reaction)
+// B → P (decay/kill)
+//
+// The system is governed by:
+// dA/dt = Da·∇²A - AB² + f(1-A)
+// dB/dt = Db·∇²B + AB² - (k+f)B
+//
+// Where:
+// - Da, Db: Diffusion rates
+// - f: Feed rate (replenishment of A)
+// - k: Kill rate (removal of B)
+// - ∇²: Laplacian operator (diffusion)
+// ============================================
+
+let gridA, gridB;      // Chemical concentration grids (1D arrays for performance)
+let nextA, nextB;      // Next generation grids (1D arrays)
+let gridWidth, gridHeight; // Grid dimensions
+let gridSize;          // Total grid cells
+let gui;               // lil-gui instance
+
+// Simulation parameters
+let params = {
+    // Gray-Scott parameters
+    feedRate: 0.055,    // f: how fast A is added
+    killRate: 0.062,    // k: how fast B is removed
+    diffusionA: 1.0,    // Da: diffusion rate of A
+    diffusionB: 0.5,    // Db: diffusion rate of B
+    
+    // Performance
+    resolution: 'Medium',  // Low, Medium, High
+    simSpeed: 1,           // Simulation steps per frame
+    
+    // Brush parameters
+    brushRadius: 20,
+    brushDensity: 1.0,
+    velocityEffect: 0.3,  // Reduced to 0.3 for subtle velocity effect
+    
+    // Visual parameters
+    backgroundColor: '#0a0a0a',
+    chemicalColor: '#00ff9f',
+    colorMode: 'Neon Glow',
+    halftone: false,
+    ditherStrength: 0.5,
+    
+    // Color mode change handler
+    onColorModeChange: function() {
+        // Update chemical color to match the color mode preset
+        const colorPresets = {
+            'Neon Glow': '#00ff9f',      // Electric cyan-green (default)
+            'Heat Map': '#ff3300',        // Hot red
+            'Acid Green': '#39ff14',      // Acid green
+            'Electric Cyan': '#00ffff',   // Electric cyan
+            'Magmatic Orange': '#ff6600'  // Magmatic orange
+        };
+        
+        if (colorPresets[params.colorMode]) {
+            params.chemicalColor = colorPresets[params.colorMode];
+            // Update the GUI display
+            gui.controllersRecursive().forEach(c => c.updateDisplay());
+        }
+    },
+    
+    // Actions
+    clearCanvas: function() { 
+        initializeGrid();
+    },
+    exportImage: function() { 
+        saveCanvas('chemical-reaction', 'png');
+    },
+    
+    // Presets
+    loadPreset: function(preset) {
+        const presets = {
+            'Coral': { f: 0.055, k: 0.062 },
+            'Fingerprint': { f: 0.037, k: 0.060 },
+            'Cellular': { f: 0.039, k: 0.058 },
+            'Mitosis': { f: 0.029, k: 0.057 },
+            'Waves': { f: 0.014, k: 0.054 },
+            'Spirals': { f: 0.018, k: 0.051 }
+        };
+        
+        if (presets[preset]) {
+            params.feedRate = presets[preset].f;
+            params.killRate = presets[preset].k;
+            gui.controllersRecursive().forEach(c => c.updateDisplay());
+        }
+    }
+};
+
+// Mouse tracking for velocity calculation
+let prevMouseX = 0;
+let prevMouseY = 0;
+let mouseVelocity = 0;
+
+function setup() {
+    // Create responsive canvas
+    createCanvas(windowWidth, windowHeight);
+    pixelDensity(1);  // Performance optimization
+    
+    // Calculate grid size based on resolution setting
+    updateGridSize();
+    
+    // Initialize chemical grids
+    initializeGrid();
+    
+    // Setup GUI
+    setupGUI();
+    
+    // Set frame rate
+    frameRate(30);  // Lower default framerate for performance
+}
+
+function updateGridSize() {
+    // Adaptive grid size based on resolution setting
+    const resolutionMap = {
+        'Low': 2.8,      // Optimized for speed
+        'Medium': 2.2,   // Balanced
+        'High': 1.7      // Quality
+    };
+    
+    let divisor = resolutionMap[params.resolution] || 2.2;
+    gridWidth = floor(width / divisor);
+    gridHeight = floor(height / divisor);
+    
+    // Cap maximum size for performance
+    gridWidth = min(gridWidth, 380);
+    gridHeight = min(gridHeight, 380);
+    
+    gridSize = gridWidth * gridHeight;
+}
+
+function initializeGrid() {
+    // Use Float32Array for better performance (contiguous memory)
+    gridA = new Float32Array(gridSize);
+    gridB = new Float32Array(gridSize);
+    nextA = new Float32Array(gridSize);
+    nextB = new Float32Array(gridSize);
+    
+    // Initialize with Chemical A everywhere, no B initially
+    for (let i = 0; i < gridSize; i++) {
+        gridA[i] = 1.0;  // Full concentration of A
+        gridB[i] = 0.0;  // No B initially
+        nextA[i] = 1.0;
+        nextB[i] = 0.0;
+    }
+    
+    // No automatic seed - user must click to start painting
+    // This gives full control and a clean canvas on reset
+}
+
+function draw() {
+    // Calculate mouse velocity
+    let dx = mouseX - prevMouseX;
+    let dy = mouseY - prevMouseY;
+    mouseVelocity = sqrt(dx * dx + dy * dy);
+    prevMouseX = mouseX;
+    prevMouseY = mouseY;
+    
+    // Update velocity indicator
+    updateVelocityIndicator();
+    
+    // Deposit Chemical B when mouse is pressed
+    if (mouseIsPressed && mouseX > 0 && mouseX < width && mouseY > 0 && mouseY < height) {
+        depositChemical();
+    }
+    
+    // Run multiple simulation steps per frame for faster evolution
+    for (let i = 0; i < params.simSpeed; i++) {
+        simulateReactionDiffusion();
+    }
+    
+    // Render to canvas
+    renderChemicals();
+}
+
+function depositChemical() {
+    // Convert mouse position to grid coordinates
+    let gx = floor(map(mouseX, 0, width, 0, gridWidth));
+    let gy = floor(map(mouseY, 0, height, 0, gridHeight));
+    
+    // Calculate effective brush radius based on velocity
+    // Faster movement = thinner deposit
+    let velocityFactor = 1.0 - (mouseVelocity / 150.0) * params.velocityEffect;
+    velocityFactor = constrain(velocityFactor, 0.5, 1.0);
+    
+    let effectiveRadius = params.brushRadius * velocityFactor;
+    let effectiveDensity = params.brushDensity * velocityFactor;
+    
+    // Deposit Chemical B in a circular area
+    for (let i = -effectiveRadius; i < effectiveRadius; i++) {
+        for (let j = -effectiveRadius; j < effectiveRadius; j++) {
+            let dist = sqrt(i * i + j * j);
+            
+            if (dist < effectiveRadius) {
+                let x = gx + floor(i);
+                let y = gy + floor(j);
+                
+                if (x >= 1 && x < gridWidth - 1 && y >= 1 && y < gridHeight - 1) {
+                    // Convert 2D to 1D index
+                    let idx = x + y * gridWidth;
+                    
+                    // Smooth falloff from center
+                    let amount = (1.0 - dist / effectiveRadius) * effectiveDensity;
+                    gridB[idx] = min(gridB[idx] + amount, 1.0);
+                }
+            }
+        }
+    }
+}
+
+function simulateReactionDiffusion() {
+    // Optimized Gray-Scott with 1D arrays and inline indexing
+    
+    for (let x = 1; x < gridWidth - 1; x++) {
+        for (let y = 1; y < gridHeight - 1; y++) {
+            // 1D index calculation
+            let idx = x + y * gridWidth;
+            
+            let a = gridA[idx];
+            let b = gridB[idx];
+            
+            // ============================================
+            // LAPLACIAN CALCULATION (Diffusion)
+            // ============================================
+            // 9-point stencil for accurate diffusion
+            // Kept original weights for same visual quality
+            // ============================================
+            
+            let laplaceA = gridA[idx] * -1.0;
+            laplaceA += gridA[idx - 1] * 0.2;              // left
+            laplaceA += gridA[idx + 1] * 0.2;              // right
+            laplaceA += gridA[idx - gridWidth] * 0.2;      // up
+            laplaceA += gridA[idx + gridWidth] * 0.2;      // down
+            laplaceA += gridA[idx - 1 - gridWidth] * 0.05; // top-left
+            laplaceA += gridA[idx + 1 - gridWidth] * 0.05; // top-right
+            laplaceA += gridA[idx - 1 + gridWidth] * 0.05; // bottom-left
+            laplaceA += gridA[idx + 1 + gridWidth] * 0.05; // bottom-right
+            
+            let laplaceB = gridB[idx] * -1.0;
+            laplaceB += gridB[idx - 1] * 0.2;
+            laplaceB += gridB[idx + 1] * 0.2;
+            laplaceB += gridB[idx - gridWidth] * 0.2;
+            laplaceB += gridB[idx + gridWidth] * 0.2;
+            laplaceB += gridB[idx - 1 - gridWidth] * 0.05;
+            laplaceB += gridB[idx + 1 - gridWidth] * 0.05;
+            laplaceB += gridB[idx - 1 + gridWidth] * 0.05;
+            laplaceB += gridB[idx + 1 + gridWidth] * 0.05;
+            
+            // ============================================
+            // REACTION TERMS
+            // ============================================
+            
+            let reaction = a * b * b;
+            
+            // Update Chemical A: dA/dt = Da·∇²A - AB² + f(1-A)
+            nextA[idx] = a + 
+                         (params.diffusionA * laplaceA) - 
+                         reaction + 
+                         (params.feedRate * (1.0 - a));
+            
+            // Update Chemical B: dB/dt = Db·∇²B + AB² - (k+f)B
+            nextB[idx] = b + 
+                         (params.diffusionB * laplaceB) + 
+                         reaction - 
+                         ((params.killRate + params.feedRate) * b);
+            
+            // Clamp values
+            nextA[idx] = constrain(nextA[idx], 0, 1);
+            nextB[idx] = constrain(nextB[idx], 0, 1);
+        }
+    }
+    
+    // Swap grids (pointer swap is very fast)
+    let tempA = gridA;
+    let tempB = gridB;
+    gridA = nextA;
+    gridB = nextB;
+    nextA = tempA;
+    nextB = tempB;
+}
+
+function renderChemicals() {
+    loadPixels();
+    
+    let scaleX = width / gridWidth;
+    let scaleY = height / gridHeight;
+    
+    // Pre-calculate colors once
+    let bgColor = color(params.backgroundColor);
+    let chemColor = color(params.chemicalColor);
+    
+    // Pre-calculate mode-specific colors
+    let heatCold, heatHot, acidColor, cyanColor, magmaColor;
+    
+    switch(params.colorMode) {
+        case 'Heat Map':
+            heatCold = color('#001a33');
+            heatHot = color('#ff3300');
+            break;
+        case 'Acid Green':
+            acidColor = color('#39ff14');
+            break;
+        case 'Electric Cyan':
+            cyanColor = color('#00ffff');
+            break;
+        case 'Magmatic Orange':
+            magmaColor = color('#ff6600');
+            break;
+    }
+    
+    for (let x = 0; x < gridWidth; x++) {
+        for (let y = 0; y < gridHeight; y++) {
+            // Get value from 1D array
+            let idx = x + y * gridWidth;
+            let b = gridB[idx];
+            
+            let c;
+            
+            // Color mapping based on mode
+            switch(params.colorMode) {
+                case 'Neon Glow':
+                    c = lerpColor(bgColor, chemColor, b);
+                    if (b > 0.5) {
+                        let glow = map(b, 0.5, 1.0, 0, 100);
+                        c = lerpColor(c, color(255), glow / 255);
+                    }
+                    break;
+                    
+                case 'Heat Map':
+                    c = lerpColor(heatCold, heatHot, b);
+                    break;
+                    
+                case 'Acid Green':
+                    c = lerpColor(bgColor, acidColor, b);
+                    break;
+                    
+                case 'Electric Cyan':
+                    c = lerpColor(bgColor, cyanColor, b);
+                    break;
+                    
+                case 'Magmatic Orange':
+                    c = lerpColor(bgColor, magmaColor, b);
+                    break;
+                    
+                default:
+                    c = lerpColor(bgColor, chemColor, b);
+            }
+            
+            // Apply halftone/dither effect if enabled
+            if (params.halftone) {
+                let dither = applyDither(x, y, b);
+                c = lerpColor(bgColor, c, dither);
+            }
+            
+            // Get color components once
+            let r = red(c);
+            let g = green(c);
+            let b_color = blue(c);
+            
+            // Calculate pixel positions
+            let px = floor(x * scaleX);
+            let py = floor(y * scaleY);
+            let pxEnd = floor((x + 1) * scaleX);
+            let pyEnd = floor((y + 1) * scaleY);
+            
+            // Fill the scaled area
+            for (let dx = px; dx < pxEnd && dx < width; dx++) {
+                for (let dy = py; dy < pyEnd && dy < height; dy++) {
+                    let index = (dx + dy * width) * 4;
+                    pixels[index] = r;
+                    pixels[index + 1] = g;
+                    pixels[index + 2] = b_color;
+                    pixels[index + 3] = 255;
+                }
+            }
+        }
+    }
+    
+    updatePixels();
+}
+
+function applyDither(x, y, value) {
+    // Ordered dithering using Bayer matrix
+    const bayerMatrix = [
+        [0, 8, 2, 10],
+        [12, 4, 14, 6],
+        [3, 11, 1, 9],
+        [15, 7, 13, 5]
+    ];
+    
+    let threshold = bayerMatrix[x % 4][y % 4] / 16.0;
+    threshold = lerp(threshold, 0.5, 1.0 - params.ditherStrength);
+    
+    return value > threshold ? 1.0 : 0.0;
+}
+
+function setupGUI() {
+    // Check which global variable lil-gui uses
+    const GUI = window.lil?.GUI || window.lilGui?.GUI || lil.GUI;
+    gui = new GUI({ title: 'REACTOR CONTROLS', width: 320 });
+    
+    // Performance Settings (at top for visibility)
+    const perfFolder = gui.addFolder('Performance');
+    perfFolder.add(params, 'resolution', ['Low', 'Medium', 'High']).name('Resolution').onChange(() => {
+        updateGridSize();
+        initializeGrid();
+    });
+    perfFolder.add(params, 'simSpeed', 1, 5, 1).name('Sim Speed (steps/frame)');
+    perfFolder.open();
+    
+    // Presets
+    const presetsFolder = gui.addFolder('Chemical Presets');
+    const presetButtons = {
+        'Coral': () => params.loadPreset('Coral'),
+        'Fingerprint': () => params.loadPreset('Fingerprint'),
+        'Cellular': () => params.loadPreset('Cellular'),
+        'Mitosis': () => params.loadPreset('Mitosis'),
+        'Waves': () => params.loadPreset('Waves'),
+        'Spirals': () => params.loadPreset('Spirals')
+    };
+    
+    for (let preset in presetButtons) {
+        presetsFolder.add(presetButtons, preset).name(preset);
+    }
+    presetsFolder.close();
+    
+    // Reaction Parameters
+    const reactionFolder = gui.addFolder('Reaction Parameters');
+    reactionFolder.add(params, 'feedRate', 0.0, 0.1, 0.001).name('Feed Rate (f)');
+    reactionFolder.add(params, 'killRate', 0.0, 0.1, 0.001).name('Kill Rate (k)');
+    reactionFolder.add(params, 'diffusionA', 0.0, 2.0, 0.01).name('Diffusion A');
+    reactionFolder.add(params, 'diffusionB', 0.0, 2.0, 0.01).name('Diffusion B');
+    
+    // Brush Parameters
+    const brushFolder = gui.addFolder('Brush Settings');
+    brushFolder.add(params, 'brushRadius', 5, 40, 1).name('Radius');
+    brushFolder.add(params, 'brushDensity', 0.1, 1.0, 0.1).name('Density');
+    brushFolder.add(params, 'velocityEffect', 0.0, 1.0, 0.1).name('Velocity Effect');
+    
+    // Visual Parameters
+    const visualFolder = gui.addFolder('Visual Settings');
+    visualFolder.addColor(params, 'backgroundColor').name('Background');
+    visualFolder.addColor(params, 'chemicalColor').name('Chemical Color');
+    visualFolder.add(params, 'colorMode', [
+        'Neon Glow',
+        'Heat Map',
+        'Acid Green',
+        'Electric Cyan',
+        'Magmatic Orange'
+    ]).name('Color Mode').onChange(() => {
+        params.onColorModeChange();
+    });
+    
+    // Raster Effects
+    const rasterFolder = gui.addFolder('Raster Effects');
+    rasterFolder.add(params, 'halftone').name('Enable Halftone (H)');
+    rasterFolder.add(params, 'ditherStrength', 0.0, 1.0, 0.1).name('Dither Strength');
+    rasterFolder.close();
+    
+    // Actions
+    const actionsFolder = gui.addFolder('Actions');
+    actionsFolder.add(params, 'clearCanvas').name('Clear & Reset (C)');
+    actionsFolder.add(params, 'exportImage').name('Export PNG (S)');
+    actionsFolder.open();
+}
+
+function updateVelocityIndicator() {
+    // Adjusted to match new sensitivity (divide by 90 for better visual range)
+    let velocityPercent = min(mouseVelocity / 90 * 100, 100);
+    let velocityFill = select('#velocity-fill');
+    if (velocityFill) {
+        velocityFill.style('width', velocityPercent + '%');
+    }
+}
+
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+    let oldGridSize = gridSize;
+    updateGridSize();
+    // Only reinitialize if size changed
+    if (oldGridSize !== gridSize) {
+        initializeGrid();
+    }
+}
+
+// Keyboard shortcuts
+function keyPressed() {
+    if (key === 'c' || key === 'C') {
+        params.clearCanvas();
+    }
+    if (key === 's' || key === 'S') {
+        params.exportImage();
+    }
+    if (key === 'h' || key === 'H') {
+        params.halftone = !params.halftone;
+        gui.controllersRecursive().forEach(c => c.updateDisplay());
+    }
+}

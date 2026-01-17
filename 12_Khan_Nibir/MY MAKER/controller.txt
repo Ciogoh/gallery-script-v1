@@ -1,0 +1,192 @@
+let img;
+let foxyGif;
+let particles = [];
+let slimeMolds = [];
+let resolution = 5; 
+let zoff = 0;
+
+// Interaction and State
+let clickCount = 0;      // Start at 0 so it doesn't play immediately
+let foxyStartTime = 0;
+let foxyDuration = 5000; // 5 seconds
+let floatAmplitude = 20; 
+let floatSpeed = 0.05;
+let numSlime = 400;
+
+function preload() {
+  img = loadImage('control.png');
+  foxyGif = loadImage('FOXY.gif');
+}
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  pixelDensity(1);
+  textFont('monospace');
+  textAlign(CENTER, CENTER);
+
+  img.resize(width * 0.7, 0);
+  if (img.height > height * 0.7) img.resize(0, height * 0.7);
+  img.loadPixels();
+
+  let xOffset = (width - img.width) / 2;
+  let yOffset = (height - img.height) / 2;
+
+  for (let x = 0; x < img.width; x += resolution) {
+    for (let y = 0; y < img.height; y += resolution) {
+      let i = (x + y * img.width) * 4;
+      if (img.pixels[i+3] > 10 && (img.pixels[i] < 252)) {
+        let col = color(img.pixels[i], img.pixels[i+1], img.pixels[i+2]);
+        particles.push(new Particle(x + xOffset, y + yOffset, col));
+      }
+    }
+  }
+
+  for (let i = 0; i < numSlime; i++) {
+    slimeMolds.push(new SlimeMold());
+  }
+}
+
+function draw() {
+  let isFoxyActive = (clickCount >= 5 && millis() - foxyStartTime < foxyDuration);
+
+  if (isFoxyActive) {
+    // --- MODE 1: THE JUMPSCARE ---
+    background(0); 
+    imageMode(CENTER);
+    image(foxyGif, width / 2, height / 2);
+    
+  } else {
+    // --- MODE 2: THE INTERACTIVE CONTROLLER ---
+    background(245, 245, 245, 25); 
+
+    let currentFloat = sin(frameCount * floatSpeed) * floatAmplitude;
+
+    // Show slime
+    for (let s of slimeMolds) {
+      s.update();
+      s.display();
+    }
+
+    // Show controller particles
+    for (let p of particles) {
+      p.updateTarget(currentFloat);
+      p.swirl();
+      p.behaviors();
+      p.update();
+      p.show();
+    }
+    
+    zoff += 0.005;
+  }
+}
+
+function mousePressed() {
+  let isFoxyActive = (clickCount >= 5 && millis() - foxyStartTime < foxyDuration);
+
+  // If the GIF is currently playing, ignore clicks
+  if (isFoxyActive) return;
+
+  // If the GIF just ended, reset the cycle on the next click
+  if (clickCount >= 5 && !isFoxyActive) {
+    clickCount = 0;
+  }
+
+  clickCount++;
+  
+  if (clickCount === 5) {
+    foxyStartTime = millis();
+  } else {
+    // Only explode if we aren't triggering the GIF
+    for (let p of particles) {
+      if (dist(mouseX, mouseY, p.pos.x, p.pos.y) < 150) {
+        p.explode();
+      }
+    }
+  }
+}
+
+// --- CLASSES ---
+
+class SlimeMold {
+  constructor() {
+    this.pos = createVector(width/2, height/2);
+    this.angle = random(TWO_PI);
+    this.speed = 2;
+  }
+  update() {
+    let dir = p5.Vector.fromAngle(this.angle);
+    this.pos.add(dir.mult(this.speed));
+    if (this.pos.x < 0 || this.pos.x > width || this.pos.y < 0 || this.pos.y > height) {
+      this.pos = createVector(width/2 + random(-50,50), height/2 + random(-50,50));
+      this.angle = random(TWO_PI);
+    }
+    this.angle += random(-0.1, 0.1);
+  }
+  display() {
+    stroke(135, 206, 250, 100);
+    strokeWeight(1.5);
+    point(this.pos.x, this.pos.y);
+  }
+}
+
+class Particle {
+  constructor(x, y, col) {
+    this.pos = createVector(random(width), random(height));
+    this.home = createVector(x, y);
+    this.target = createVector(x, y);
+    this.vel = createVector();
+    this.acc = createVector();
+    this.col = col;
+    this.maxspeed = 8;
+    this.maxforce = 0.4;
+    this.isBinary = false;
+    this.binaryChar = random(['0', '1']);
+  }
+  updateTarget(offset) { this.target.y = this.home.y + offset; }
+  explode() {
+    this.isBinary = true;
+    let dir = p5.Vector.sub(this.pos, createVector(mouseX, mouseY));
+    dir.setMag(1800 / (dir.mag() + 1));
+    this.applyForce(dir);
+    this.vel.add(p5.Vector.random2D().mult(random(10, 25)));
+  }
+  swirl() {
+    let angle = noise(this.pos.x * 0.005, this.pos.y * 0.005, zoff) * TWO_PI * 2;
+    this.applyForce(p5.Vector.fromAngle(angle).setMag(0.1));
+  }
+  behaviors() {
+    this.applyForce(this.arrive(this.target));
+    this.applyForce(this.flee(createVector(mouseX, mouseY)));
+    if (this.isBinary && random(1) < 0.1) this.binaryChar = random(['0', '1']);
+  }
+  applyForce(f) { this.acc.add(f); }
+  update() {
+    this.pos.add(this.vel);
+    this.vel.add(this.acc);
+    this.acc.mult(0);
+    this.vel.mult(0.93); 
+    let d = p5.Vector.dist(this.pos, this.target);
+    if (this.isBinary && this.vel.mag() < 0.8 && d < 5) this.isBinary = false;
+  }
+  show() {
+    if (this.isBinary) {
+      fill(0, 180, 0); noStroke(); textSize(10); text(this.binaryChar, this.pos.x, this.pos.y);
+    } else {
+      stroke(red(this.col) > 230 ? 210 : this.col); strokeWeight(resolution * 0.7); point(this.pos.x, this.pos.y);
+    }
+  }
+  arrive(target) {
+    let d = p5.Vector.sub(target, this.pos);
+    let speed = map(d.mag(), 0, 100, 0, this.maxspeed);
+    return p5.Vector.sub(d.setMag(speed), this.vel).limit(this.maxforce);
+  }
+  flee(target) {
+    let d = p5.Vector.sub(target, this.pos);
+    if (d.mag() < 60) return p5.Vector.sub(d.setMag(this.maxspeed).mult(-1.5), this.vel).limit(this.maxforce * 2);
+    return createVector(0, 0);
+  }
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}

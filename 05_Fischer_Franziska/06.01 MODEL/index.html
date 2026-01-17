@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VeloGeo | Interactive Studio</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+  <script src="https://unpkg.com/ml5@1/dist/ml5.min.js"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0; padding: 0; overflow: hidden;
+      background-color: #e0e0e0; 
+      font-family: 'Manrope', sans-serif;
+      user-select: none;
+    }
+
+    /* --- NEU: PHASE INDICATOR (OBEN LINKS) --- */
+    #phase-indicator {
+      position: absolute; top: 30px; left: 30px;
+      z-index: 3000; /* Immer ganz oben */
+      border-left: 4px solid #000; /* Schwarzer Balken links */
+      padding-left: 15px;
+      font-family: 'Manrope', sans-serif;
+    }
+    
+    .phase-label {
+      font-size: 10px; font-weight: 700; color: #666;
+      letter-spacing: 2px; text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .phase-title {
+      font-size: 18px; font-weight: 800; color: #000;
+      letter-spacing: -0.5px; text-transform: uppercase;
+    }
+
+    /* --- START SCREEN --- */
+    #start-screen {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: #050505; color: #fff; z-index: 2000;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      cursor: pointer; transition: opacity 0.5s ease;
+    }
+    #start-screen h1 { font-size: 6vw; font-weight: 800; letter-spacing: -3px; margin: 0; }
+    #start-screen p { color: #666; letter-spacing: 3px; font-size: 12px; margin-top: 10px; }
+    .hidden { opacity: 0; pointer-events: none; }
+
+    /* --- UI TEXT LAYER (Mitte) --- */
+    #ui-layer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 1000;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      transition: opacity 0.5s ease;
+    }
+
+    #instruction-main {
+      font-size: 5vw; font-weight: 800; color: #111; margin: 0;
+      text-align: center; letter-spacing: -2px; line-height: 1;
+      text-shadow: 0 0 30px rgba(255,255,255,0.9);
+      text-transform: uppercase;
+    }
+
+    #instruction-sub {
+      font-size: 1.2vw; font-weight: 600; color: #555; margin-top: 15px;
+      background: rgba(255,255,255,0.9); padding: 8px 25px; border-radius: 50px;
+      text-transform: uppercase; letter-spacing: 1px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="phase-indicator">
+    <div class="phase-label">CURRENT PHASE</div>
+    <div id="phase-text" class="phase-title">01 // TITLE SCREEN</div>
+  </div>
+
+  <div id="start-screen" onclick="startApp()">
+    <p>WORK IN PROGRESS // PRE-ALPHA</p>
+    <h1>VELOGEO</h1>
+    <p>[ CLICK TO INITIALIZE SYSTEM ]</p>
+  </div>
+
+  <div id="ui-layer">
+    <div id="instruction-main">SYSTEM LOADING...</div>
+    <div id="instruction-sub">Please Wait</div>
+  </div>
+
+  <script src="sketch.js"></script>
+
+  <script>
+    function startApp() {
+      document.getElementById('start-screen').classList.add('hidden');
+      if(window.p5Sketch) window.p5Sketch.startLogic();
+    }
+  </script>
+</body>
+</html>

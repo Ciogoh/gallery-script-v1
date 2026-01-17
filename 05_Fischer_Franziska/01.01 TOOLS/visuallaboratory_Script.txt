@@ -1,0 +1,115 @@
+/**
+ * VIS LAB - LAUNCHER
+ * Framework: p5.js
+ * Target: Netlify Direct Link
+ */
+
+let verificationCode;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  // Generiert eine "Session-ID" für den Tech-Look
+  verificationCode = "SESSION_ID: " + btoa(Date.now()).substring(0, 16);
+}
+
+function draw() {
+  background(0);
+  noStroke();
+  
+  let centerX = width / 2;
+  let centerY = height / 2;
+
+  // --- 1. HINTERGRUND EFFEKT (Subtiles Raster) ---
+  stroke(255, 15);
+  strokeWeight(1);
+  line(centerX, 0, centerX, height);
+  line(0, centerY, width, centerY);
+  noStroke();
+
+  // --- 2. LOGO BEREICH ---
+  textAlign(CENTER, CENTER);
+  fill(255);
+  
+  // Haupttitel
+  textStyle(BOLD); 
+  textSize(50);
+  text("VIS LAB", centerX, centerY - 100);
+  
+  // Untertitel
+  textStyle(NORMAL);
+  textSize(14);
+  letterSpacing = 2; // Falls p5 Version das unterstützt, sonst ignoriert es das
+  text("INTERACTIVE VISUAL EXPERIMENT", centerX, centerY - 60);
+
+  // --- 3. PULSIERENDER PFEIL (Visual Cue) ---
+  let pulse = sin(frameCount * 0.1) * 10; 
+  let arrowY = centerY - 10;
+  
+  push();
+  stroke(255); 
+  strokeWeight(3); 
+  noFill();
+  strokeCap(ROUND); 
+  strokeJoin(ROUND);
+  
+  beginShape();
+  vertex(centerX - 15, arrowY + pulse);
+  vertex(centerX, arrowY + pulse + 15);
+  vertex(centerX + 15, arrowY + pulse);
+  endShape();
+  pop();
+
+  // --- 4. DER BUTTON (Interaktiv) ---
+  let btnW = 280;
+  let btnH = 60;
+  let btnX = centerX - btnW / 2;
+  let btnY = centerY + 40;
+  
+  // Hover-Check
+  let isHover = (mouseX > btnX && mouseX < btnX + btnW && mouseY > btnY && mouseY < btnY + btnH);
+  
+  // Button Zeichnen
+  if (isHover) {
+    fill(255); // Weißer Hintergrund bei Hover
+    stroke(255);
+  } else {
+    noFill();  // Transparenter Hintergrund sonst
+    stroke(255); // Weißer Rahmen
+  }
+  strokeWeight(2);
+  rectMode(CENTER);
+  rect(centerX, btnY + btnH/2, btnW, btnH, 4); // Leicht abgerundete Ecken
+
+  // Button Text
+  noStroke();
+  fill(isHover ? 0 : 255); // Textfarbe invertieren (Schwarz bei Hover, sonst Weiß)
+  textStyle(BOLD);
+  textSize(14);
+  text("LAUNCH PROJECT", centerX, btnY + btnH/2);
+
+  // --- 5. FOOTER / TECH INFO ---
+  fill(80);
+  textStyle(NORMAL);
+  textSize(10);
+  textAlign(CENTER, BOTTOM);
+  text(verificationCode + " // ONLINE_STATUS: ACTIVE", centerX, height - 20);
+}
+
+function mousePressed() {
+  let centerX = width / 2;
+  let centerY = height / 2;
+  let btnW = 280; 
+  let btnH = 60;
+  let btnX = centerX - btnW / 2; 
+  let btnY = centerY + 40;
+
+  // Klick-Logik für den Button
+  if (mouseX > btnX && mouseX < btnX + btnW && mouseY > btnY && mouseY < btnY + btnH) {
+    // Öffnet den Netlify Link im neuen Tab
+    window.open("https://visuallaboratory.netlify.app", "_blank");
+  }
+}
+
+function windowResized() { 
+  resizeCanvas(windowWidth, windowHeight); 
+}

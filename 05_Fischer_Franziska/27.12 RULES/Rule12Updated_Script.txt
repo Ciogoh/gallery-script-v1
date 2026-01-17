@@ -1,0 +1,423 @@
+let player;
+let arcs = [];
+let numArcs = 50;
+let score = 0;
+let highscore = 0;
+let maxScoreThisMatch = 0;
+let gameOver = false;
+let showStartScreen = true;
+let driftSpeedIncrement = 0.001;
+
+let playerPath = [];
+let collectedColors = [];
+let playerColors = []; // speichert die Spielerfarbe in jedem Frame
+let showReplay = false;
+let replayIndex = 1;
+let replayFinished = false;
+
+// Startscreen Farbverlauf
+let usedColors = [];
+let titleColor;
+let hoverPrev = false;
+
+// Game Over Cursor-Farbe
+let gameTextColor;
+let gameHoverPrev = false;
+
+function setup() {
+  createCanvas(800, 800);
+  player = new PlayerArc(width / 2, height / 2, 50);
+
+  for (let i = 0; i < numArcs; i++) {
+    arcs.push(new ArcEntity(random(width), random(height)));
+  }
+
+  textAlign(CENTER, CENTER);
+  strokeCap(ROUND);
+
+  titleColor = getNewColor();
+  gameTextColor = getNewColor();
+}
+
+function getNewColor() {
+  let newColor;
+  do {
+    newColor = color(random(50, 255), random(50, 255), random(50, 255));
+  } while (usedColors.some(c => red(c) === red(newColor) && green(c) === green(newColor) && blue(c) === blue(newColor)));
+  usedColors.push(newColor);
+  return newColor;
+}
+
+function getRandomArcColor() {
+  return color(random(50, 255), random(50, 255), random(50, 255));
+}
+
+function draw() {
+  background(255);
+
+  if (showStartScreen) {
+    drawStartScreen();
+    return;
+  }
+
+  if (!gameOver) {
+    player.update(arcs);
+    player.display();
+
+    // Spielerposition und aktuelle Farbe speichern
+    playerPath.push(createVector(player.pos.x, player.pos.y));
+    playerColors.push(player.color);
+
+    let scoreChanged = false;
+
+    for (let arc of arcs) {
+      arc.update();
+      arc.display();
+
+      if (player.checkCollision(arc)) {
+        if (arc.type === "friendly") {
+          score++;
+          scoreChanged = true;
+          collectedColors.push(arc.color);
+          player.color = arc.color;
+          arc.reset();
+        } else if (arc.type === "danger") {
+          score--;
+          scoreChanged = true;
+          arc.reset();
+        }
+      }
+
+      arc.drift.mult(1 + driftSpeedIncrement);
+    }
+
+    if (score > maxScoreThisMatch) maxScoreThisMatch = score;
+
+    fill(0);
+    noStroke();
+    textSize(18);
+    textAlign(LEFT, TOP);
+    text("SCORE: " + score, 10, 10);
+
+    if (scoreChanged && score <= 0) {
+      gameOver = true;
+      if (maxScoreThisMatch > highscore) highscore = maxScoreThisMatch;
+      player.color = color(0);
+    }
+
+  } else {
+    if (showReplay) {
+      drawReplay();
+    } else {
+      drawGameOver();
+    }
+  }
+}
+
+// ---------- Start Screen ----------
+function drawStartScreen() {
+  background(255);
+  fill(0);
+  textSize(16);
+  textAlign(LEFT, TOP);
+  text("RULE 12", 10, 10);
+  textAlign(RIGHT, TOP);
+  text("FF", width - 10, 10);
+
+  let titleX = width / 2;
+  let titleY = height / 2;
+
+  let hover = mouseX > titleX - 200 && mouseX < titleX + 200 && mouseY > titleY - 50 && mouseY < titleY + 50;
+
+  if (hover && !hoverPrev) {
+    titleColor = getNewColor();
+  }
+  hoverPrev = hover;
+
+  fill(titleColor);
+  textSize(hover ? 80 : 60);
+  textAlign(CENTER, CENTER);
+  text("ARC SURVIVAL", titleX, titleY);
+
+  push();
+  translate(mouseX, mouseY);
+  rotate(-PI / 2);
+  stroke(titleColor);
+  strokeWeight(4);
+  noFill();
+  arc(0, 0, 50, 50, PI, TWO_PI);
+  pop();
+
+  fill(0);
+  textSize(12);
+  textAlign(CENTER, TOP);
+  text(
+    "MOVE YOUR ARC WITH THE MOUSE\nCOLLECT COLORED ARCS\nAVOID THE BLACK ONES",
+    titleX,
+    titleY + 60
+  );
+}
+
+// ---------------- Game Over ----------------
+function drawGameOver() {
+  let titleX = width / 2;
+  let titleY = height / 2;
+
+  let gameText = "GAME";
+  let overText = " OVER!";
+  let saveText = "PRESS S TO SAVE SCREENSHOT";
+  let replayText = "PRESS B TO SEE YOUR MOVEMENT";
+
+  textSize(36);
+  let gameWidth = textWidth(gameText); 
+  let gameHeight = 36;
+
+  let gameX1 = titleX - gameWidth / 2;
+  let gameX2 = titleX + gameWidth / 2;
+  let gameY1 = titleY - gameHeight / 2;
+  let gameY2 = titleY + gameHeight / 2;
+
+  let hover = mouseX > gameX1 && mouseX < gameX2 && mouseY > gameY1 && mouseY < gameY2;
+
+  if (hover && !gameHoverPrev) {
+    gameTextColor = getNewColor();
+  }
+  gameHoverPrev = hover;
+
+  let displayColor = gameTextColor;
+  let displaySize = hover ? 48 : 36;
+
+  fill(displayColor);
+  textSize(displaySize);
+  textAlign(CENTER, CENTER);
+  text(gameText, titleX - textWidth(overText)/2, titleY);
+
+  fill(0);
+  textSize(36);
+  text(overText, titleX + textWidth(gameText)/2, titleY);
+
+  push();
+  translate(mouseX, mouseY);
+  rotate(-PI / 2);
+  stroke(displayColor);
+  strokeWeight(4);
+  noFill();
+  arc(0, 0, 50, 50, PI, TWO_PI);
+  pop();
+
+  fill(0);
+  textSize(18);
+  textAlign(CENTER, TOP);
+  text("ROUND HIGHSCORE: " + maxScoreThisMatch, width/2, titleY + 50);
+  text("OVERALL HIGHSCORE: " + highscore, width/2, titleY + 75);
+
+  fill(0);
+  textSize(16);
+  text(saveText, width / 2, titleY + 110);
+
+  fill(displayColor);
+  text(replayText, width / 2, titleY + 135);
+}
+
+// ---------------- Replay Cursor-Brush ----------------
+function drawReplay() {
+  background(255);
+
+  if (playerPath.length < 2) return;
+
+  strokeWeight(6);
+  noFill();
+
+  for (let i = 1; i <= replayIndex && i < playerPath.length; i++) {
+    let prev = playerPath[i - 1];
+    let curr = playerPath[i];
+    let c = playerColors[i - 1] || color(0); // Spielerfarbe zum Zeitpunkt
+
+    let dx = curr.x - prev.x;
+    let dy = curr.y - prev.y;
+    let distSeg = dist(prev.x, prev.y, curr.x, curr.y);
+    let angle = atan2(dy, dx);
+
+    push();
+    translate(prev.x, prev.y);
+    rotate(angle - PI / 2);
+    stroke(c);
+    strokeWeight(6);
+    noFill();
+    arc(0, 0, distSeg * 1.5, 20, PI, TWO_PI);
+    pop();
+  }
+
+  replayIndex++;
+  if (replayIndex >= playerPath.length) {
+    replayFinished = true;
+    replayIndex = playerPath.length - 1;
+  }
+}
+
+// ---------------- Mouse Click ----------------
+function mousePressed() {
+  if (showStartScreen) {
+    showStartScreen = false;
+  } else if (showReplay && replayFinished) {
+    showReplay = false;
+    replayIndex = 1;
+    replayFinished = false;
+  } else if (gameOver && !showReplay) {
+    score = 0;
+    maxScoreThisMatch = 0;
+    gameOver = false;
+    playerPath = [];
+    collectedColors = [];
+    playerColors = [];
+    player.color = color(0);
+    for (let arc of arcs) arc.reset();
+  }
+}
+
+// ---------------- Key Input ----------------
+function keyPressed() {
+  if (gameOver) {
+    if (!showReplay && !replayFinished) {
+      if (key === "b" || key === "B") {
+        showReplay = true;
+        replayIndex = 1;
+        replayFinished = false;
+      }
+    }
+    if (key === "s" || key === "S") {
+      if (showReplay && replayFinished) {
+        saveCanvas("ARC_SURVIVAL_CURSORBRUSH", "png");
+      } else if (!showReplay) {
+        saveGameOverScreenshot();
+      }
+    }
+  } else if (key === "s" || key === "S") {
+    saveCanvas("ARC_SURVIVAL_SCREENSHOT", "png");
+  }
+}
+
+// ---------------- Screenshot Game Over ----------------
+function saveGameOverScreenshot() {
+  push();
+  background(255);
+  let titleX = width/2;
+  let titleY = height/2;
+
+  let gameText = "GAME";
+  let overText = " OVER!";
+  let arcTitle = "ARC SURVIVAL";
+
+  fill(gameTextColor);
+  textSize(60);
+  textAlign(CENTER, CENTER);
+  text(arcTitle, titleX, titleY - 150);
+
+  fill(gameTextColor);
+  textSize(36);
+  textAlign(CENTER, CENTER);
+  text(gameText, titleX - textWidth(overText)/2, titleY);
+  fill(0);
+  text(overText, titleX + textWidth(gameText)/2, titleY);
+
+  fill(0);
+  textSize(18);
+  textAlign(CENTER, TOP);
+  text("ROUND HIGHSCORE: " + maxScoreThisMatch, width/2, titleY + 50);
+  text("OVERALL HIGHSCORE: " + highscore, width/2, titleY + 75);
+
+  saveCanvas("ARC_SURVIVAL_GAMEOVER", "png");
+  pop();
+}
+
+// ---------------- Player Arc ----------------
+class PlayerArc {
+  constructor(x, y, s) {
+    this.pos = createVector(x, y);
+    this.size = s;
+    this.color = color(0);
+    this.angle = -PI / 2;
+  }
+
+  update(arcs) {
+    this.pos.x = mouseX;
+    this.pos.y = mouseY;
+
+    let closest = null;
+    let closestDist = Infinity;
+    for (let arc of arcs) {
+      if (arc.type === "friendly") {
+        let d = dist(this.pos.x, this.pos.y, arc.pos.x, arc.pos.y);
+        if (d < closestDist) {
+          closestDist = d;
+          closest = arc;
+        }
+      }
+    }
+
+    if (closest) {
+      let dir = p5.Vector.sub(closest.pos, this.pos);
+      this.angle = dir.heading() - PI / 2;
+    }
+  }
+
+  display() {
+    push();
+    translate(this.pos.x, this.pos.y);
+    rotate(this.angle);
+    noFill();
+    stroke(this.color);
+    strokeWeight(4);
+    arc(0, 0, this.size, this.size, PI, TWO_PI);
+    pop();
+  }
+
+  checkCollision(arc) {
+    let d = dist(this.pos.x, this.pos.y, arc.pos.x, arc.pos.y);
+    return d < (this.size / 2 + arc.size / 2);
+  }
+}
+
+// ---------------- Arc Entity ----------------
+class ArcEntity {
+  constructor(x, y) {
+    this.pos = createVector(x, y);
+    this.size = random(15, 30);
+    this.angle = random(TWO_PI);
+    this.speed = random(0.01, 0.03);
+    this.rotationDir = random([1, -1]);
+    this.drift = p5.Vector.random2D().mult(random(0.5, 1.5));
+    this.type = random(["friendly", "danger"]);
+    this.color = this.type === "friendly" ? getRandomArcColor() : color(0);
+  }
+
+  reset() {
+    this.pos = createVector(random(width), random(height));
+    this.angle = random(TWO_PI);
+    this.size = random(15, 30);
+    this.type = random(["friendly", "danger"]);
+    this.color = this.type === "friendly" ? getRandomArcColor() : color(0);
+    this.drift = p5.Vector.random2D().mult(random(0.5, 1.5));
+  }
+
+  update() {
+    this.angle += this.speed * this.rotationDir;
+    this.pos.add(this.drift);
+
+    if (this.pos.x < 0) this.pos.x = width;
+    if (this.pos.x > width) this.pos.x = 0;
+    if (this.pos.y < 0) this.pos.y = height;
+    if (this.pos.y > height) this.pos.y = 0;
+  }
+
+  display() {
+    push();
+    translate(this.pos.x, this.pos.y);
+    rotate(this.angle);
+    stroke(this.color);
+    strokeWeight(2);
+    noFill();
+    arc(0, 0, this.size, this.size, PI, 0);
+    pop();
+  }
+}

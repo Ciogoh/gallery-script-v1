@@ -1,0 +1,56 @@
+// Sketch p5.js "Kikiii" arcobaleno con bordo nero e salvataggio automatico PNG
+
+let word = "Kikiii";
+let colors = [];
+
+function setup() {
+  createCanvas(800, 600);
+  pixelDensity(2); // qualità migliore del PNG
+
+  // Colori arcobaleno per ogni lettera
+  colors = [
+    color(255, 0, 0),     // rosso
+    color(255, 127, 0),   // arancione
+    color(255, 255, 0),   // giallo
+    color(0, 255, 0),     // verde
+    color(0, 0, 255),     // blu
+    color(139, 0, 255)    // viola
+  ];
+
+  background(255, 0, 255); // fucsia
+
+  textAlign(CENTER, CENTER);
+  textSize(200);
+  textStyle(BOLD);
+
+  // Calcolo posizione lettere
+  let totalWidth = textWidth(word);
+  let xStart = width / 2 - totalWidth / 2;
+  let yPos = height / 2;
+
+  // Disegno ogni lettera con riempimento arcobaleno e bordo nero
+  noStroke();
+  for (let i = 0; i < word.length; i++) {
+    let c = word.charAt(i);
+    let charWidth = textWidth(c);
+    let x = xStart + charWidth / 2;
+
+    // Bordo nero
+    stroke(0);
+    strokeWeight(8);
+    fill(colors[i % colors.length]);
+    text(c, x, yPos);
+
+    xStart += charWidth;
+  }
+
+  // Salva automaticamente come PNG all'esecuzione
+  saveCanvas("Kikiii_arcobaleno", "png");
+
+  // Non serve ridisegnare
+  noLoop();
+}
+
+function draw() {
+  // Vuoto, il disegno avviene in setup
+}

@@ -1,0 +1,248 @@
+﻿let textInput, modeSelect, sizeSlider, speedSlider, ampSlider, fontSelect, repetitionSlider;
+let textColorPicker, bgColorPicker;
+let pg;
+let exporting = false;
+let gifBtn; // Global deklariert, damit resetTool darauf zugreifen kann
+
+
+function setup() {
+  createCanvas(800, 500); 
+  pixelDensity(1); 
+  
+  // Navigation Menu
+  let menu = createDiv();
+  menu.id('menu-container');
+  menu.style('position', 'fixed');
+  menu.style('top', '0');
+  menu.style('left', '0');
+  menu.style('width', '100%');
+  menu.style('background', 'rgba(15, 15, 15, 0.98)');
+  menu.style('padding', '12px');
+  menu.style('display', 'flex');
+  menu.style('flex-wrap', 'wrap');
+  menu.style('gap', '12px');
+  menu.style('align-items', 'center');
+  menu.style('color', 'white');
+  menu.style('font-family', 'sans-serif');
+  menu.style('font-size', '11px');
+  menu.style('z-index', '1000');
+  menu.style('border-bottom', '1px solid #333');
+  
+  textInput = createInput('KINETIC');
+  textInput.parent(menu);
+
+
+  createSpan('Font:').parent(menu);
+  fontSelect = createSelect();
+  fontSelect.parent(menu);
+  fontSelect.option('Impact');
+  fontSelect.option('Arial Black');
+  fontSelect.option('Monospace');
+  fontSelect.option('Georgia');
+  fontSelect.option('Verdana');
+  fontSelect.option('Courier New');
+
+
+  createSpan('Effect:').parent(menu);
+  modeSelect = createSelect();
+  modeSelect.parent(menu);
+  modeSelect.option('Wave');
+  modeSelect.option('RGB-Shift');
+  modeSelect.option('Grid-Rotate');
+  modeSelect.option('Liquify');
+  modeSelect.option('Noise');
+  modeSelect.option('Strobe');
+
+
+  createSpan('Text:').parent(menu);
+  textColorPicker = createColorPicker('#ffffff').parent(menu);
+  createSpan('BG:').parent(menu);
+  bgColorPicker = createColorPicker('#000000').parent(menu);
+
+
+  createSpan('Size:').parent(menu);
+  sizeSlider = createSlider(10, 250, 80).parent(menu);
+  
+  createSpan('Repeat:').parent(menu);
+  repetitionSlider = createSlider(1, 12, 1).parent(menu);
+  
+  createSpan('Speed:').parent(menu);
+  speedSlider = createSlider(0, 0.2, 0.05, 0.01).parent(menu);
+  
+  createSpan('Amount:').parent(menu);
+  ampSlider = createSlider(0, 200, 50).parent(menu);
+
+
+  let pngBtn = createButton('Save PNG');
+  pngBtn.parent(menu);
+  pngBtn.mousePressed(() => saveCanvas('design', 'png'));
+
+
+  gifBtn = createButton('Export GIF');
+  gifBtn.parent(menu);
+  gifBtn.style('background', '#e74c3c');
+  gifBtn.style('color', 'white');
+  gifBtn.style('font-weight', 'bold');
+  gifBtn.style('border', 'none');
+  gifBtn.style('padding', '5px 10px');
+  gifBtn.style('cursor', 'pointer');
+  
+  gifBtn.mousePressed(() => {
+    if (exporting) return;
+    exporting = true;
+    
+    gifBtn.html('⌛ Rendering...');
+    gifBtn.style('background', '#555');
+    gifBtn.attribute('disabled', ''); 
+    
+    saveGif('kinetic_' + floor(random(1000)) + '.gif', 2, {
+      units: 'seconds',
+      framerate: 12,
+      quality: 10,
+      width: 400,
+      onComplete: () => {
+        // Automatischer Reset nach dem Download
+        resetTool();
+      }
+    });
+  });
+
+
+  // Manueller Restart Button
+  let restartBtn = createButton('🔄 Restart Tool');
+  restartBtn.parent(menu);
+  restartBtn.style('background', '#7f8c8d');
+  restartBtn.style('color', 'white');
+  restartBtn.style('border', 'none');
+  restartBtn.style('padding', '5px 10px');
+  restartBtn.style('cursor', 'pointer');
+  restartBtn.mousePressed(resetTool);
+
+
+  pg = createGraphics(width, height);
+}
+
+
+// Die Restart-Funktion, die alles auf Anfang setzt
+function resetTool() {
+  exporting = false;
+  
+  // Button zurücksetzen
+  gifBtn.html('Export GIF');
+  gifBtn.style('background', '#e74c3c');
+  gifBtn.removeAttribute('disabled');
+  
+  // UI Werte zurücksetzen
+  textInput.value('KINETIC');
+  fontSelect.selected('Impact');
+  modeSelect.selected('Wave');
+  textColorPicker.value('#ffffff');
+  bgColorPicker.value('#000000');
+  sizeSlider.value(80);
+  repetitionSlider.value(1);
+  speedSlider.value(0.05);
+  ampSlider.value(50);
+  
+  // Loop sicherstellen
+  loop();
+  
+  console.log("Tool & GIF-Funktion wurden zurückgesetzt.");
+}
+
+
+function draw() {
+  let menuContainer = document.getElementById('menu-container');
+  if (menuContainer) {
+    canvas.style.marginTop = menuContainer.offsetHeight + 'px';
+  }
+
+
+  let bg = bgColorPicker.value();
+  background(bg);
+  
+  pg.background(bg);
+  pg.fill(textColorPicker.value());
+  pg.textAlign(CENTER, CENTER);
+  pg.textFont(fontSelect.value());
+  pg.textSize(sizeSlider.value());
+  
+  let reps = repetitionSlider.value();
+  let cellW = width / reps;
+  let cellH = height / reps;
+  
+  for (let i = 0; i < reps; i++) {
+    for (let j = 0; j < reps; j++) {
+      pg.text(textInput.value(), i * cellW + cellW/2, j * cellH + cellH/2);
+    }
+  }
+
+
+  applyKineticEffect();
+}
+
+
+function applyKineticEffect() {
+  let mode = modeSelect.value();
+  let speed = speedSlider.value();
+  let amp = ampSlider.value();
+
+
+  if (mode === 'Wave') {
+    let segments = 50;
+    let h = height / segments;
+    for (let y = 0; y < segments; y++) {
+      let xOffset = sin(frameCount * speed + y * 0.15) * amp;
+      copy(pg, 0, y * h, width, h, xOffset, y * h, width, h);
+    }
+  } 
+  else if (mode === 'RGB-Shift') {
+    let shift = sin(frameCount * speed) * (amp/2);
+    push();
+    image(pg, 0, 0);
+    blendMode(SCREEN);
+    tint(255, 0, 0); image(pg, shift, 0);
+    tint(0, 255, 0); image(pg, -shift, 0);
+    pop();
+  }
+  else if (mode === 'Grid-Rotate') {
+    let res = 10;
+    let w = width / res;
+    let h = height / res;
+    for (let i = 0; i < res; i++) {
+      for (let j = 0; j < res; j++) {
+        push();
+        translate(i * w + w/2, j * h + h/2);
+        rotate(sin(frameCount * speed + (i+j)*0.3) * (amp/80));
+        image(pg, -w/2, -h/2, w, h, i*w, j*h, w, h);
+        pop();
+      }
+    }
+  }
+  else if (mode === 'Liquify') {
+    let res = 15;
+    let w = width / res;
+    let h = height / res;
+    for (let i = 0; i < res; i++) {
+      for (let j = 0; j < res; j++) {
+        let d = dist(mouseX, mouseY, i * w, j * h);
+        let shift = map(d, 0, 250, amp/1.5, 0, true);
+        copy(pg, i * w, j * h, w, h, i * w + shift, j * h + shift, w, h);
+      }
+    }
+  }
+  else if (mode === 'Noise') {
+    let segments = 40;
+    let h = height / segments;
+    for (let y = 0; y < segments; y++) {
+      let n = (noise(y * 0.1, frameCount * speed) - 0.5) * amp * 2;
+      copy(pg, 0, y * h, width, h, n, y * h, width, h);
+    }
+  }
+  else if (mode === 'Strobe') {
+    if (frameCount % 4 === 0) {
+      image(pg, random(-amp/4, amp/4), random(-amp/4, amp/4));
+    } else {
+      image(pg, 0, 0);
+    }
+  }
+}

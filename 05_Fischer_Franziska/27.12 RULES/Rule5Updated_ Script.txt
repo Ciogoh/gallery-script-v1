@@ -1,0 +1,303 @@
+let canvas;
+let showTitle = true;
+
+let title = "SYMBOL LAB";
+let subtitle = "DRAW UP TO 3 LINES TO CREATE A UNIQUE SYMBOL";
+
+let circleRadius = 180;
+let circleAngle = 0;
+
+let gridSize = 20;
+let lines = [];
+let tempLine = [];
+let drawing = false;
+let maxLines = 3;
+
+let mirrorX;
+
+let archive = [];
+let archiveMode = false;
+let lastSymbol = null;
+
+let symbolCreated = false; // Flag für ENTER-Status
+
+function setup() {
+  canvas = createCanvas(800, 800);
+  frameRate(60);
+  textAlign(CENTER, CENTER);
+}
+
+// ---------------- Draw ----------------
+function draw() {
+  background(0);
+  drawHeader();
+
+  if (showTitle) {
+    drawTitle();
+    drawOrganicLineAroundTitle();
+    if (isMouseOverTitle()) drawAdditionalPulsingCircles();
+  } else {
+    if (archiveMode) {
+      drawArchiveOverlay();
+    } else {
+      drawGrid();
+
+      // Zeige das zuletzt erstellte Symbol, falls symbolCreated
+      if (symbolCreated && lastSymbol) {
+        let savedLines = lines;
+        lines = lastSymbol;
+        drawSymmetricLetter();
+        lines = savedLines;
+      }
+
+      drawAllLines();
+      drawTempLine();
+    }
+  }
+}
+
+// ---------------- Header ----------------
+function drawHeader() {
+  fill(255);
+  noStroke();
+  textSize(14);
+
+  if (showTitle) {
+    textAlign(LEFT, TOP); text("RULE 5", 10, 10);
+    textAlign(RIGHT, TOP); text("FF", width - 10, 10);
+    textAlign(CENTER, CENTER);
+  } else {
+    textAlign(CENTER, TOP);
+    text("ENTER = create/confirm | S = save | A = archive", width / 2, 10);
+  }
+}
+
+// ---------------- Title ----------------
+function drawTitle() {
+  fill(255);
+  noStroke();
+  textSize(48); text(title, width / 2, height / 2);
+  textSize(16); textAlign(CENTER, TOP);
+  text(subtitle, width / 2, height / 2 + 40);
+  textAlign(CENTER, CENTER);
+}
+
+function isMouseOverTitle() {
+  let w = textWidth(title);
+  let h = 48;
+  let x = width / 2 - w / 2;
+  let y = height / 2 - h / 2;
+  return mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h;
+}
+
+// ---------------- Organic Lines ----------------
+function drawOrganicLineAroundTitle() {
+  push();
+  translate(width / 2, height / 2);
+  noFill(); stroke(255); strokeWeight(2);
+  beginShape();
+  let points = 150;
+  let safeDistance = circleRadius + 60;
+  for (let i = 0; i < points; i++) {
+    let angle = map(i, 0, points, 0, TWO_PI) + circleAngle;
+    let r = safeDistance + map(noise(i * 0.05, frameCount * 0.01), 0, 1, -25, 25);
+    vertex(cos(angle) * r, sin(angle) * r);
+  }
+  endShape(CLOSE);
+  pop();
+  circleAngle += 0.01;
+}
+
+// ---------------- Pulsing Circles ----------------
+function drawAdditionalPulsingCircles() {
+  let distances = [circleRadius + 100, circleRadius + 140, circleRadius + 180, circleRadius + 220];
+  for (let d of distances) {
+    push();
+    translate(width / 2, height / 2);
+    noFill();
+    stroke(255, 150 + 105 * sin(frameCount * 0.05));
+    strokeWeight(2 + sin(frameCount * 0.1));
+    beginShape();
+    let points = 120;
+    for (let i = 0; i < points; i++) {
+      let angle = map(i, 0, points, 0, TWO_PI) + circleAngle * 0.5;
+      let r = d + map(noise(i * 0.05, frameCount * 0.01), 0, 1, -20, 20);
+      vertex(cos(angle) * r, sin(angle) * r);
+    }
+    endShape(CLOSE);
+    pop();
+  }
+}
+
+// ---------------- Grid ----------------
+function drawGrid() {
+  stroke(60); strokeWeight(1);
+  for (let x = 0; x <= width; x += gridSize) line(x, 0, x, height);
+  for (let y = 0; y <= height; y += gridSize) line(0, y, width, y);
+}
+
+// ---------------- Lines ----------------
+function drawAllLines() {
+  stroke(255); strokeWeight(2); noFill();
+  for (let l of lines) {
+    beginShape();
+    for (let p of l) vertex(p.x, p.y);
+    endShape();
+  }
+}
+
+function drawTempLine() {
+  if (tempLine.length > 0) {
+    stroke(255, 150); strokeWeight(2); noFill();
+    beginShape();
+    for (let p of tempLine) vertex(p.x, p.y);
+    endShape();
+  }
+}
+
+// ---------------- Mouse ----------------
+function mousePressed() {
+  if (showTitle) { showTitle = false; return; }
+
+  if (!archiveMode && lines.length < maxLines) {
+    drawing = true;
+    tempLine = [createVector(mouseX, mouseY)];
+  }
+}
+
+function mouseDragged() {
+  if (drawing) tempLine.push(createVector(mouseX, mouseY));
+}
+
+function mouseReleased() {
+  if (drawing) {
+    lines.push([...tempLine]);
+    tempLine = [];
+    drawing = false;
+  }
+}
+
+// ---------------- Keyboard ----------------
+function keyPressed() {
+  if (keyCode === ENTER) handleEnter();
+  if (key === 'a' || key === 'A') { archiveMode = !archiveMode; }
+  if (key === 's' || key === 'S') { saveSymbolWithoutHeader(); }
+}
+
+// ---------------- ENTER Logic ----------------
+function handleEnter() {
+  mirrorX = width / 2;
+
+  if (!symbolCreated) {
+    // First ENTER ? create symmetric symbol
+    if (lines.length > 0) {
+      for (let i = 0; i < lines.length; i++) lines[i] = simplifyLine(lines[i], 5);
+      archive.push(JSON.parse(JSON.stringify(lines)));
+      lastSymbol = JSON.parse(JSON.stringify(lines));
+    }
+    symbolCreated = true;
+  } else {
+    // Second ENTER ? clear current symbol, new canvas
+    lines = [];
+    tempLine = [];
+    lastSymbol = null;
+    symbolCreated = false;
+  }
+}
+
+// ---------------- Save Symbol ----------------
+function saveSymbolWithoutHeader() {
+  if (lastSymbol) {
+    let pg = createGraphics(width, height);
+    pg.background(0);
+
+    // Raster
+    pg.stroke(60); pg.strokeWeight(1);
+    for (let x = 0; x <= width; x += gridSize) pg.line(x, 0, x, height);
+    for (let y = 0; y <= height; y += gridSize) pg.line(0, y, width, y);
+
+    // Symmetrisches Symbol
+    pg.push();
+    pg.fill(255); pg.noStroke();
+    pg.beginShape();
+    for (let l of lastSymbol) for (let p of l) pg.vertex(p.x, p.y);
+    pg.endShape(pg.CLOSE);
+    pg.beginShape();
+    for (let l of lastSymbol) for (let p of l) pg.vertex(2 * mirrorX - p.x, p.y);
+    pg.endShape(pg.CLOSE);
+    pg.pop();
+
+    pg.save('symbol.png');
+  }
+}
+
+// ---------------- Line Simplify ----------------
+function simplifyLine(points, tolerance) {
+  if (points.length < 3) return points;
+  let first = points[0], last = points[points.length - 1];
+  let maxDist = 0, index = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    let d = perpendicularDistance(points[i], first, last);
+    if (d > maxDist) { index = i; maxDist = d; }
+  }
+  if (maxDist > tolerance) {
+    let left = simplifyLine(points.slice(0, index + 1), tolerance);
+    let right = simplifyLine(points.slice(index), tolerance);
+    return left.slice(0, -1).concat(right);
+  } else return [first, last];
+}
+
+function perpendicularDistance(p, p1, p2) {
+  let num = abs((p2.y - p1.y) * p.x - (p2.x - p1.x) * p.y + p2.x * p1.y - p2.y * p1.x);
+  let den = dist(p1.x, p1.y, p2.x, p2.y);
+  return num / den;
+}
+
+// ---------------- Symmetry ----------------
+function drawSymmetricLetter() {
+  push(); fill(255); noStroke();
+  beginShape(); for (let l of lines) for (let p of l) vertex(p.x, p.y); endShape(CLOSE);
+  beginShape(); for (let l of lines) for (let p of l) vertex(2 * mirrorX - p.x, p.y); endShape(CLOSE);
+  pop();
+}
+
+// ---------------- Archiv Overlay (nur Anzeige, mittig) ----------------
+function drawArchiveOverlay() {
+  fill(0, 220);
+  rect(0, 0, width, height);
+
+  // Archiv-Raster zentriert, ohne Interaktion
+  fill(255); noStroke(); textSize(24); textAlign(CENTER, TOP);
+  text("ARCHIVE", width / 2, 10);
+
+  let cols = 4; // Anzahl Spalten
+  let margin = 20; // Abstand zwischen Symbolen
+  let totalWidth = width - margin * (cols + 1);
+  let cellSize = totalWidth / cols;
+
+  let rows = ceil(archive.length / cols);
+  let totalHeight = rows * cellSize + (rows - 1) * margin;
+  let startY = height / 2 - totalHeight / 2 + 30;
+
+  for (let i = 0; i < archive.length; i++) {
+    let col = i % cols;
+    let row = floor(i / cols);
+
+    // Symbole zentriert mit Rand
+    let x = width / 2 - (cols * cellSize + (cols - 1) * margin) / 2 + col * (cellSize + margin);
+    let y = startY + row * (cellSize + margin);
+
+    push();
+    translate(x + cellSize / 2, y + cellSize / 2);
+    scale(cellSize / width, cellSize / height);
+    let savedLines = lines; 
+    lines = archive[i]; 
+    drawSymmetricLetter(); 
+    lines = savedLines;
+    pop();
+  }
+
+  // Hinweistext
+  fill(255); textSize(16); textAlign(CENTER, TOP);
+  text("Press A to close", width / 2, height - 30);
+}

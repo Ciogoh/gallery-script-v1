@@ -1,0 +1,525 @@
+let img; // Original image (never modified)
+let displayImg; // Scaled version for display
+let gui;
+let params;
+let imageData = [];
+let paperTexture;
+let canvasWidth = 800;
+let canvasHeight = 800;
+
+// Pattern drawing functions
+const patterns = {
+    circles: (x, y, size, intensity) => {
+        const radius = map(intensity, 0, 255, 0, size * 0.8);
+        circle(x, y, radius);
+    },
+    
+    lines: (x, y, size, intensity, angle) => {
+        const lineLength = map(intensity, 0, 255, 0, size * 1.2);
+        push();
+        translate(x, y);
+        rotate(angle);
+        line(-lineLength/2, 0, lineLength/2, 0);
+        pop();
+    },
+    
+    crosses: (x, y, size, intensity, angle) => {
+        const lineLength = map(intensity, 0, 255, 0, size * 1.2);
+        push();
+        translate(x, y);
+        rotate(angle);
+        line(-lineLength/2, 0, lineLength/2, 0);
+        line(0, -lineLength/2, 0, lineLength/2);
+        pop();
+    },
+    
+    dots: (x, y, size, intensity) => {
+        const dotSize = map(intensity, 0, 255, 0, size * 0.6);
+        rect(x - dotSize/2, y - dotSize/2, dotSize, dotSize);
+    },
+    
+    grain: (x, y, size, intensity) => {
+        const grainDensity = map(intensity, 0, 255, 0, 8);
+        for (let i = 0; i < grainDensity; i++) {
+            const px = x + random(-size/2, size/2);
+            const py = y + random(-size/2, size/2);
+            const grainSize = random(0.5, 2);
+            circle(px, py, grainSize);
+        }
+    }
+};
+
+function setup() {
+    let canvas = createCanvas(canvasWidth, canvasHeight);
+    canvas.drop(handleFile);
+    canvas.mousePressed(selectFile);
+    
+    // Initialize GUI
+    setupGUI();
+    
+    // Generate paper texture
+    generatePaperTexture();
+    
+    background(245, 240, 230);
+    
+    // Show upload prompt
+    textAlign(CENTER, CENTER);
+    fill(100);
+    textSize(18);
+    text('Drop an image here or click to upload', width/2, height/2);
+}
+
+function setupGUI() {
+    gui = new lil.GUI({ 
+        title: 'Raster'
+    });
+    
+    params = {
+        gridSize: 8,
+        
+        // Red channel controls
+        redOffsetX: 0,
+        redOffsetY: 0,
+        redPattern: 'lines',
+        redAngle: 15,
+        redOpacity: 255,
+        
+        // Green channel controls
+        greenOffsetX: 2,
+        greenOffsetY: -2,
+        greenPattern: 'circles',
+        greenAngle: 45,
+        greenOpacity: 255,
+        
+        // Blue channel controls
+        blueOffsetX: -2,
+        blueOffsetY: 2,
+        bluePattern: 'crosses',
+        blueAngle: 75,
+        blueOpacity: 255,
+        
+        // General
+        paperTexture: true,
+        paperOpacity: 30,
+        blendMode: 'multiply',
+        
+        clear: () => clearImage(),
+        savePNG: () => saveImage()
+    };
+    
+    // Grid controls
+    const gridFolder = gui.addFolder('Grid');
+    gridFolder.add(params, 'gridSize', 3, 20, 1).name('Grid Size').onChange(processImage);
+    
+    // Red channel folder
+    const redFolder = gui.addFolder('Red Channel');
+    redFolder.add(params, 'redOffsetX', -50, 50, 0.5).name('Offset X').onChange(processImage);
+    redFolder.add(params, 'redOffsetY', -50, 50, 0.5).name('Offset Y').onChange(processImage);
+    redFolder.add(params, 'redPattern', ['circles', 'lines', 'crosses', 'dots', 'grain']).name('Pattern').onChange(processImage);
+    redFolder.add(params, 'redAngle', 0, 180, 1).name('Angle (°)').onChange(processImage);
+    redFolder.add(params, 'redOpacity', 0, 255, 1).name('Opacity').onChange(processImage);
+    
+    // Green channel folder
+    const greenFolder = gui.addFolder('Green Channel');
+    greenFolder.add(params, 'greenOffsetX', -50, 50, 0.5).name('Offset X').onChange(processImage);
+    greenFolder.add(params, 'greenOffsetY', -50, 50, 0.5).name('Offset Y').onChange(processImage);
+    greenFolder.add(params, 'greenPattern', ['circles', 'lines', 'crosses', 'dots', 'grain']).name('Pattern').onChange(processImage);
+    greenFolder.add(params, 'greenAngle', 0, 180, 1).name('Angle (°)').onChange(processImage);
+    greenFolder.add(params, 'greenOpacity', 0, 255, 1).name('Opacity').onChange(processImage);
+    
+    // Blue channel folder
+    const blueFolder = gui.addFolder('Blue Channel');
+    blueFolder.add(params, 'blueOffsetX', -50, 50, 0.5).name('Offset X').onChange(processImage);
+    blueFolder.add(params, 'blueOffsetY', -50, 50, 0.5).name('Offset Y').onChange(processImage);
+    blueFolder.add(params, 'bluePattern', ['circles', 'lines', 'crosses', 'dots', 'grain']).name('Pattern').onChange(processImage);
+    blueFolder.add(params, 'blueAngle', 0, 180, 1).name('Angle (°)').onChange(processImage);
+    blueFolder.add(params, 'blueOpacity', 0, 255, 1).name('Opacity').onChange(processImage);
+    
+    // Aesthetics folder
+    const aestheticsFolder = gui.addFolder('Aesthetics');
+    aestheticsFolder.add(params, 'paperTexture').name('Paper Texture').onChange(processImage);
+    aestheticsFolder.add(params, 'paperOpacity', 0, 100, 1).name('Paper Opacity').onChange(processImage);
+    aestheticsFolder.add(params, 'blendMode', ['multiply', 'screen', 'overlay', 'normal']).name('Blend Mode').onChange(processImage);
+    
+    // Actions
+    gui.add(params, 'clear').name('Clear');
+    gui.add(params, 'savePNG').name('Save PNG');
+}
+
+function generatePaperTexture() {
+    paperTexture = createGraphics(canvasWidth, canvasHeight);
+    paperTexture.loadPixels();
+    
+    for (let y = 0; y < canvasHeight; y++) {
+        for (let x = 0; x < canvasWidth; x++) {
+            const noise = random(240, 255);
+            const idx = (x + y * canvasWidth) * 4;
+            paperTexture.pixels[idx] = noise;
+            paperTexture.pixels[idx + 1] = noise - 10;
+            paperTexture.pixels[idx + 2] = noise - 15;
+            paperTexture.pixels[idx + 3] = 255;
+        }
+    }
+    
+    paperTexture.updatePixels();
+}
+
+function selectFile() {
+    if (!img) {
+        let input = createFileInput(handleFile);
+        input.elt.click();
+        input.remove();
+    }
+}
+
+function handleFile(file) {
+    if (file.type === 'image') {
+        loadImage(file.data, (loadedImg) => {
+            img = loadedImg; // Keep original
+            
+            // Create scaled version for display
+            const scale = min(canvasWidth / img.width, canvasHeight / img.height) * 0.9;
+            displayImg = img.get(); // Create a copy
+            displayImg.resize(displayImg.width * scale, displayImg.height * scale);
+            
+            extractImageData();
+            processImage();
+        });
+    }
+}
+
+function clearImage() {
+    img = null;
+    displayImg = null;
+    imageData = [];
+    background(245, 240, 230);
+    
+    // Show upload prompt again
+    textAlign(CENTER, CENTER);
+    fill(100);
+    textSize(18);
+    text('Drop an image here or click to upload', width/2, height/2);
+}
+
+function extractImageData() {
+    if (!displayImg) return;
+    
+    imageData = [];
+    displayImg.loadPixels();
+    
+    // Extract color data on grid points only (optimization)
+    for (let y = 0; y < displayImg.height; y += params.gridSize) {
+        for (let x = 0; x < displayImg.width; x += params.gridSize) {
+            const idx = (x + y * displayImg.width) * 4;
+            imageData.push({
+                x: x,
+                y: y,
+                r: displayImg.pixels[idx],
+                g: displayImg.pixels[idx + 1],
+                b: displayImg.pixels[idx + 2]
+            });
+        }
+    }
+}
+
+function processImage() {
+    if (!displayImg) return;
+    
+    // Re-extract data if grid size changed
+    extractImageData();
+    
+    // Clear canvas with paper color
+    background(245, 240, 230);
+    
+    // Calculate centering offsets
+    const offsetX = (width - displayImg.width) / 2;
+    const offsetY = (height - displayImg.height) / 2;
+    
+    // Set blend mode
+    switch(params.blendMode) {
+        case 'multiply':
+            blendMode(MULTIPLY);
+            break;
+        case 'screen':
+            blendMode(SCREEN);
+            break;
+        case 'overlay':
+            blendMode(OVERLAY);
+            break;
+        default:
+            blendMode(BLEND);
+    }
+    
+    // Draw each color channel as a separate layer
+    drawChannel('red', params.redOffsetX, params.redOffsetY, params.redPattern, 
+               params.redAngle, params.redOpacity, offsetX, offsetY);
+    drawChannel('green', params.greenOffsetX, params.greenOffsetY, params.greenPattern, 
+               params.greenAngle, params.greenOpacity, offsetX, offsetY);
+    drawChannel('blue', params.blueOffsetX, params.blueOffsetY, params.bluePattern, 
+               params.blueAngle, params.blueOpacity, offsetX, offsetY);
+    
+    // Reset blend mode
+    blendMode(BLEND);
+    
+    // Apply paper texture overlay
+    if (params.paperTexture) {
+        push();
+        tint(255, params.paperOpacity);
+        image(paperTexture, 0, 0);
+        pop();
+    }
+}
+
+function drawChannel(channel, offsetX, offsetY, patternType, angle, opacity, centerX, centerY) {
+    const angleRad = radians(angle);
+    
+    noFill();
+    strokeWeight(1.5);
+    
+    imageData.forEach(pixel => {
+        let intensity;
+        let channelColor;
+        
+        // Get the appropriate channel value
+        switch(channel) {
+            case 'red':
+                intensity = pixel.r;
+                channelColor = color(255, 0, 0, opacity);
+                break;
+            case 'green':
+                intensity = pixel.g;
+                channelColor = color(0, 255, 0, opacity);
+                break;
+            case 'blue':
+                intensity = pixel.b;
+                channelColor = color(0, 0, 255, opacity);
+                break;
+        }
+        
+        // Skip if intensity is too low
+        if (intensity < 5) return;
+        
+        // Calculate position with offset and centering
+        const x = pixel.x + offsetX + centerX;
+        const y = pixel.y + offsetY + centerY;
+        
+        // Set color
+        stroke(channelColor);
+        fill(channelColor);
+        
+        // Draw pattern
+        const patternFunc = patterns[patternType];
+        if (patternFunc) {
+            patternFunc(x, y, params.gridSize, intensity, angleRad);
+        }
+    });
+}
+
+function saveImage() {
+    if (!img || !displayImg) {
+        alert('Carica prima un\'immagine!');
+        return;
+    }
+    
+    // Calculate scale factor between original and display
+    const scaleFactor = img.width / displayImg.width;
+    
+    // Safety check
+    if (!scaleFactor || scaleFactor <= 0 || isNaN(scaleFactor)) {
+        console.error('Invalid scale factor:', scaleFactor);
+        alert('Errore nel calcolo della scala. Riprova.');
+        return;
+    }
+    
+    console.log('Export info:', {
+        originalSize: `${img.width}x${img.height}`,
+        displaySize: `${displayImg.width}x${displayImg.height}`,
+        scaleFactor: scaleFactor,
+        gridSize: params.gridSize
+    });
+    
+    // Extract data from ORIGINAL image using SAME grid as display
+    // but we'll scale the positions when drawing
+    let originalImageData = [];
+    img.loadPixels();
+    for (let y = 0; y < displayImg.height; y += params.gridSize) {
+        for (let x = 0; x < displayImg.width; x += params.gridSize) {
+            // Get color from original image at scaled position
+            const origX = Math.floor(x * scaleFactor);
+            const origY = Math.floor(y * scaleFactor);
+            const idx = (origX + origY * img.width) * 4;
+            originalImageData.push({
+                x: origX,  // Position in original image
+                y: origY,
+                r: img.pixels[idx],
+                g: img.pixels[idx + 1],
+                b: img.pixels[idx + 2]
+            });
+        }
+    }
+    
+    // Temporarily resize canvas to original image size
+    const originalW = width;
+    const originalH = height;
+    
+    resizeCanvas(img.width, img.height);
+    
+    // Regenerate paper texture at original size
+    let tempPaperTexture = createGraphics(img.width, img.height);
+    tempPaperTexture.loadPixels();
+    for (let y = 0; y < img.height; y++) {
+        for (let x = 0; x < img.width; x++) {
+            const noise = random(240, 255);
+            const idx = (x + y * img.width) * 4;
+            tempPaperTexture.pixels[idx] = noise;
+            tempPaperTexture.pixels[idx + 1] = noise - 10;
+            tempPaperTexture.pixels[idx + 2] = noise - 15;
+            tempPaperTexture.pixels[idx + 3] = 255;
+        }
+    }
+    tempPaperTexture.updatePixels();
+    
+    // Draw on main canvas at full resolution
+    background(245, 240, 230);
+    
+    // Set blend mode
+    switch(params.blendMode) {
+        case 'multiply':
+            blendMode(MULTIPLY);
+            break;
+        case 'screen':
+            blendMode(SCREEN);
+            break;
+        case 'overlay':
+            blendMode(OVERLAY);
+            break;
+        default:
+            blendMode(BLEND);
+    }
+    
+    // Scale parameters for export
+    const exportGridSize = params.gridSize * scaleFactor;
+    const exportStrokeWeight = 1.5 * scaleFactor;
+    
+    // Draw each channel using ORIGINAL image data with scaled parameters
+    drawChannelFromData(originalImageData, 'red', params.redOffsetX * scaleFactor, 
+                        params.redOffsetY * scaleFactor, params.redPattern, 
+                        params.redAngle, params.redOpacity, exportGridSize, exportStrokeWeight);
+    drawChannelFromData(originalImageData, 'green', params.greenOffsetX * scaleFactor, 
+                        params.greenOffsetY * scaleFactor, params.greenPattern, 
+                        params.greenAngle, params.greenOpacity, exportGridSize, exportStrokeWeight);
+    drawChannelFromData(originalImageData, 'blue', params.blueOffsetX * scaleFactor, 
+                        params.blueOffsetY * scaleFactor, params.bluePattern, 
+                        params.blueAngle, params.blueOpacity, exportGridSize, exportStrokeWeight);
+    
+    blendMode(BLEND);
+    
+    // Apply paper texture
+    if (params.paperTexture) {
+        push();
+        tint(255, params.paperOpacity);
+        image(tempPaperTexture, 0, 0);
+        pop();
+    }
+    
+    // Save
+    saveCanvas('raster-print', 'png');
+    
+    // Restore original canvas size
+    resizeCanvas(originalW, originalH);
+    
+    // Regenerate original paper texture
+    generatePaperTexture();
+    
+    // Redraw at display size
+    processImage();
+    
+    // Clean up
+    tempPaperTexture.remove();
+}
+
+// Helper function to draw channel from specific data array
+function drawChannelFromData(data, channel, offsetX, offsetY, patternType, angle, opacity, gridSize, strokeW) {
+    const angleRad = radians(angle);
+    
+    noFill();
+    strokeWeight(strokeW);
+    
+    data.forEach(pixel => {
+        let intensity;
+        let channelColor;
+        
+        // Get the appropriate channel value
+        switch(channel) {
+            case 'red':
+                intensity = pixel.r;
+                channelColor = color(255, 0, 0, opacity);
+                break;
+            case 'green':
+                intensity = pixel.g;
+                channelColor = color(0, 255, 0, opacity);
+                break;
+            case 'blue':
+                intensity = pixel.b;
+                channelColor = color(0, 0, 255, opacity);
+                break;
+        }
+        
+        // Skip if intensity is too low
+        if (intensity < 5) return;
+        
+        // Calculate position with offset (no centering for export)
+        const x = pixel.x + offsetX;
+        const y = pixel.y + offsetY;
+        
+        // Set color
+        stroke(channelColor);
+        fill(channelColor);
+        
+        // Draw pattern using the provided gridSize
+        switch(patternType) {
+            case 'circles':
+                const radius = map(intensity, 0, 255, 0, gridSize * 0.8);
+                circle(x, y, radius);
+                break;
+                
+            case 'lines':
+                const lineLength = map(intensity, 0, 255, 0, gridSize * 1.2);
+                push();
+                translate(x, y);
+                rotate(angleRad);
+                line(-lineLength/2, 0, lineLength/2, 0);
+                pop();
+                break;
+                
+            case 'crosses':
+                const crossLength = map(intensity, 0, 255, 0, gridSize * 1.2);
+                push();
+                translate(x, y);
+                rotate(angleRad);
+                line(-crossLength/2, 0, crossLength/2, 0);
+                line(0, -crossLength/2, 0, crossLength/2);
+                pop();
+                break;
+                
+            case 'dots':
+                const dotSize = map(intensity, 0, 255, 0, gridSize * 0.6);
+                rect(x - dotSize/2, y - dotSize/2, dotSize, dotSize);
+                break;
+                
+            case 'grain':
+                const grainDensity = map(intensity, 0, 255, 0, 8);
+                for (let i = 0; i < grainDensity; i++) {
+                    const px = x + random(-gridSize/2, gridSize/2);
+                    const py = y + random(-gridSize/2, gridSize/2);
+                    const grainSize = random(0.5 * (gridSize/8), 2 * (gridSize/8));
+                    circle(px, py, grainSize);
+                }
+                break;
+        }
+    });
+}
+
+function draw() {
+    // Static render - only updates on parameter changes
+}

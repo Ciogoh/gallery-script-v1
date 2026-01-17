@@ -1,0 +1,103 @@
+let textureLegno, textureStrada;
+let macchine = [];
+
+function setup() {
+  createCanvas(windowWidth, windowHeight, WEBGL);
+  
+  // TEXTURE LEGNO PIÙ CHIARA
+  textureLegno = createGraphics(400, 400);
+  textureLegno.background(160, 100, 50); // Marrone più chiaro e vibrante
+  textureLegno.stroke(100, 60, 30, 150);
+  for (let i = 0; i < 150; i++) {
+    let x = random(-50, 450);
+    textureLegno.noFill();
+    textureLegno.bezier(x, 0, x+20, 100, x-20, 300, x, 400);
+  }
+
+  // TEXTURE STRADA CHIARA
+  textureStrada = createGraphics(200, 600);
+  textureStrada.background(70); // Asfalto grigio medio
+  textureStrada.stroke(255, 230, 0); 
+  textureStrada.strokeWeight(5);
+  for (let y = 0; y < 600; y += 50) {
+    textureStrada.line(100, y, 100, y + 25);
+  }
+
+  for (let i = 0; i < 12; i++) {
+    macchine.push({
+      x: random([-16, 16]),
+      y: random(-300, 300),
+      v: random(2, 4),
+      c: color(200, 50, 50) // Macchine rosse classiche
+    });
+  }
+}
+
+function draw() {
+  background(220); // SFONDO CHIARO (LUCE GIORNO)
+  
+  // Permette di muoverlo solo con il mouse
+  orbitControl();
+  
+  // ILLUMINAZIONE FORTE
+  ambientLight(180); // Molta luce diffusa
+  directionalLight(255, 255, 255, 0, 1, -1); // Luce frontale potente
+  pointLight(255, 255, 255, 200, -200, 200); // Luce di riempimento
+
+  // --- CASSA UKULELE ---
+  push();
+  texture(textureLegno);
+  noStroke();
+  
+  // Parte bassa
+  push();
+  translate(0, 85, 0);
+  ellipsoid(110, 100, 60); 
+  pop();
+
+  // Parte alta
+  push();
+  translate(0, -45, 0);
+  ellipsoid(85, 80, 50); 
+  pop();
+
+  // Vita
+  push();
+  translate(0, 20, 0);
+  ellipsoid(72, 90, 48); 
+  pop();
+  pop();
+
+  // --- TUNNEL / SOUNDHOLE ---
+  push();
+  translate(0, 25, 52);
+  fill(40);
+  noStroke();
+  rotateX(HALF_PI);
+  cylinder(38, 10);
+  pop();
+
+  // --- MANICO / AUTOSTRADA ---
+  push();
+  translate(0, -250, 10);
+  texture(textureStrada);
+  box(65, 550, 18);
+  
+  // Macchine
+  for (let m of macchine) {
+    m.y += m.v;
+    if (m.y > 275) m.y = -275;
+    
+    push();
+    translate(m.x, m.y, 15);
+    fill(m.c);
+    noStroke();
+    box(10, 18, 8);
+    // Fari
+    fill(255, 255, 150);
+    translate(0, 8, 2);
+    sphere(2.5);
+    pop();
+  }
+  pop();
+}

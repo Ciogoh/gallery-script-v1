@@ -1,0 +1,267 @@
+let particles = [];
+let NUM_PARTICLES = 100;
+
+// PARAMETRI MATEMATICI RICHIESTI
+let amplitude = 60;   
+let spacing = 20;     
+let speed = 0.04;     
+
+// VARIABILI UI
+let shapeSelector, moveSelector, countSlider, countLabel;
+let alignCheck, linesSlider, linesLabel, trailCheck, influenceCheck;
+let waveAmpSlider, waveAmpLabel, sizeSlider, sizeLabel, speedSlider, colorPicker;
+let recordButton;
+
+// STATI INIZIALI
+let currentShape = 'Square';
+let currentMove = 'Harmonic';
+let isAligned = true; 
+let numLines = 1;
+let hasTrail = true;
+let hasInfluence = true;
+let recordingCountdown = -1;
+
+let globalSpeedMultiplier = 1;
+let globalSizeMultiplier = 1; 
+let particleColor;
+
+const sidebarWidth = 220;
+
+class Particle {
+    constructor(index) {
+        this.index = index;
+        this.y = random(height);
+        this.x = width / 2;
+        this.targetX = width / 2;
+        this.phaseShift = 0;
+        this.basePhase = this.index * 0.2; 
+        this.baseVelocity = random(1.5, 3.5);
+        this.baseSize = 6;
+    }
+
+    update() {
+        let t = frameCount * speed * globalSpeedMultiplier;
+        this.y += this.baseVelocity * globalSpeedMultiplier;
+        
+        if (this.y > height + 50) {
+            this.y = -50;
+            this.phaseShift = 0;
+        }
+
+        if (isAligned) {
+            let colIndex = this.index % numLines;
+            let totalWidth = (numLines - 1) * spacing;
+            let startX = sidebarWidth + (width - sidebarWidth - totalWidth) / 2;
+            this.targetX = startX + (colIndex * spacing);
+        } else {
+            if (!this.randomX) this.randomX = random(sidebarWidth + 50, width - 50);
+            this.targetX = this.randomX;
+        }
+        this.x = lerp(this.x, this.targetX, 0.1);
+
+        if (hasInfluence) {
+            for (let other of particles) {
+                if (other === this) continue;
+                let d = abs(this.y - other.y); 
+                if (d < 30) this.phaseShift += (other.basePhase - this.basePhase) * 0.002;
+            }
+        }
+        this.phaseShift *= 0.95;
+
+        let finalPhase = this.basePhase + this.phaseShift;
+        if (currentMove === 'Harmonic') {
+            this.xOffset = sin(t + finalPhase) * amplitude + sin(t * 1.6 + this.index) * (amplitude * 0.25);
+        } else if (currentMove === 'Wave') {
+            this.xOffset = sin(this.y * 0.01 + finalPhase) * amplitude;
+        } else {
+            this.xOffset = 0;
+        }
+    }
+
+    display() {
+        let s = this.baseSize * globalSizeMultiplier;
+        let c = colorPicker.color();
+        
+        push();
+        translate(this.x + this.xOffset, this.y);
+        fill(c);
+        noStroke();
+
+        if (currentShape === 'Square') {
+            rectMode(CENTER);
+            rect(0, 0, s, s);
+        } else if (currentShape === 'Circle') {
+            ellipse(0, 0, s);
+        } else if (currentShape === 'Triangle') {
+            let h = s * 0.866;
+            triangle(0, -h/2, -s/2, h/2, s/2, h/2);
+        } else if (currentShape === 'Line') {
+            stroke(c);
+            strokeWeight(s / 2);
+            line(0, -s * 1.5, 0, s * 1.5);
+        }
+        pop();
+    }
+}
+
+function setup() {
+    createCanvas(windowWidth, windowHeight);
+    createSidebar();
+    updateParticleCount();
+}
+
+function draw() {
+    if (hasTrail) background(5, 50); 
+    else background(5);
+
+    for (let p of particles) {
+        p.update();
+        p.display();
+    }
+    
+    drawSidebarUI();
+
+    if (recordingCountdown > 0) {
+        fill(255, 0, 0);
+        noStroke();
+        ellipse(width - 30, 30, 20, 20);
+        fill(255);
+        textSize(12);
+        textAlign(RIGHT);
+        text("REC GIF (5s)...", width - 50, 35);
+        recordingCountdown--;
+    }
+}
+
+// === LOGICA SALVATAGGIO (TASTIERA) ===
+function keyPressed() {
+  if (key === 's' || key === 'S') {
+    startGifRecording();
+  }
+}
+
+// Funzione unificata per la registrazione
+function startGifRecording() {
+    recordingCountdown = 300; // 5 secondi a 60fps (60 * 5 = 300)
+    saveGif('myFlowSketch', 5);
+}
+
+function drawSidebarUI() {
+    push();
+    noStroke();
+    fill(15);
+    rect(0, 0, sidebarWidth, height);
+    stroke(40);
+    line(sidebarWidth, 0, sidebarWidth, height);
+    pop();
+}
+
+function updateParticleCount() {
+    let target = countSlider.value();
+    if (particles.length < target) {
+        for (let i = particles.length; i < target; i++) particles.push(new Particle(i));
+    } else {
+        particles.splice(target);
+    }
+    countLabel.html('DENSITY: ' + target);
+}
+
+function createSidebar() {
+    let x = 20, y = 20;
+    const style = 'color: #888; font-family: sans-serif; font-size: 10px; font-weight: bold; text-transform: uppercase;';
+
+    let title = createElement('h3', 'WAVE SYSTEM');
+    title.style('color: #00ffcc; font-family: sans-serif; margin-bottom: 20px;');
+    title.position(x, 0);
+
+    recordButton = createButton('GENERATE GIF (S)');
+    recordButton.position(x, y + 40);
+    recordButton.style('background', '#00ffcc');
+    recordButton.style('border', 'none');
+    recordButton.style('padding', '10px 20px');
+    recordButton.style('cursor', 'pointer');
+    recordButton.style('font-weight', 'bold');
+    recordButton.style('border-radius', '4px');
+    recordButton.mousePressed(startGifRecording);
+
+    countLabel = createLabel('DENSITY', x, y + 85, style);
+    countSlider = createSlider(1, 500, NUM_PARTICLES, 1);
+    countSlider.position(x, y + 100);
+    countSlider.input(updateParticleCount);
+
+    trailCheck = createCheckbox(' TRAIL EFFECT', true);
+    trailCheck.position(x, y + 130);
+    trailCheck.style('color', 'white');
+    trailCheck.changed(() => hasTrail = trailCheck.checked());
+
+    alignCheck = createCheckbox(' ALIGNED MODE', true);
+    alignCheck.position(x, y + 155);
+    alignCheck.style('color', 'white');
+    alignCheck.changed(() => isAligned = alignCheck.checked());
+
+    linesLabel = createLabel('COLUMNS: 1', x, y + 185, style);
+    linesSlider = createSlider(1, 20, 1, 1);
+    linesSlider.position(x, y + 200);
+    linesSlider.input(() => {
+        numLines = linesSlider.value();
+        linesLabel.html('COLUMNS: ' + numLines);
+    });
+
+    let spacingLabel = createLabel('SPACING: 20', x, y + 230, style);
+    let spacingSlider = createSlider(0, 100, 20, 1);
+    spacingSlider.position(x, y + 245);
+    spacingSlider.input(() => {
+        spacing = spacingSlider.value();
+        spacingLabel.html('SPACING: ' + spacing);
+    });
+
+    waveAmpLabel = createLabel('AMPLITUDE: 60', x, y + 275, style);
+    waveAmpSlider = createSlider(0, 200, 60, 1);
+    waveAmpSlider.position(x, y + 290);
+    waveAmpSlider.input(() => {
+        amplitude = waveAmpSlider.value();
+        waveAmpLabel.html('AMPLITUDE: ' + amplitude);
+    });
+
+    influenceCheck = createCheckbox(' FLUID INTERACTION', true);
+    influenceCheck.position(x, y + 320);
+    influenceCheck.style('color: #00ffcc; font-size: 11px;');
+    influenceCheck.changed(() => hasInfluence = influenceCheck.checked());
+
+    createLabel('GEOMETRY', x, y + 355, style);
+    shapeSelector = createSelect();
+    shapeSelector.position(x, y + 370);
+    shapeSelector.option('Square'); shapeSelector.option('Circle'); shapeSelector.option('Triangle'); shapeSelector.option('Line');
+    shapeSelector.changed(() => currentShape = shapeSelector.value());
+
+    createLabel('MOTION TYPE', x, y + 405, style);
+    moveSelector = createSelect();
+    moveSelector.position(x, y + 420);
+    moveSelector.option('Harmonic'); moveSelector.option('Wave'); moveSelector.option('Straight');
+    moveSelector.changed(() => currentMove = moveSelector.value());
+
+    sizeLabel = createLabel('SIZE: 1.0x', x, y + 455, style);
+    sizeSlider = createSlider(0.1, 5, 1, 0.1);
+    sizeSlider.position(x, y + 470);
+    sizeSlider.input(() => {
+        globalSizeMultiplier = sizeSlider.value();
+        sizeLabel.html('SIZE: ' + globalSizeMultiplier.toFixed(1) + 'x');
+    });
+
+    createLabel('SPEED MULTIPLIER', x, y + 505, style);
+    speedSlider = createSlider(0.1, 4, 1, 0.1);
+    speedSlider.position(x, y + 520);
+    speedSlider.input(() => globalSpeedMultiplier = speedSlider.value());
+
+    createLabel('COLOR', x, y + 555, style);
+    colorPicker = createColorPicker('#ffffff');
+    colorPicker.position(x, y + 570);
+}
+
+function createLabel(txt, x, y, style) {
+    let l = createElement('span', txt);
+    l.style(style); l.position(x, y);
+    return l;
+}
+
+function windowResized() { resizeCanvas(windowWidth, windowHeight); }

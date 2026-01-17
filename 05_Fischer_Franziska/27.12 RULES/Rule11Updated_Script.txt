@@ -1,0 +1,315 @@
+let video;
+let standbild;
+let pixelPortrait;
+
+let step = 20;
+let currentRow = 0;
+let drawing = false;
+let finished = false;
+let linesPerFrame = 6;
+
+let showHint = true;
+let showLiveView = true;
+
+let currentMode;
+let imgCount = 0;
+
+let archive = [];
+let showArchive = false;
+let archiveViewImage = null;
+let archiveHeaderHeight = 30;
+
+let firstStart = true;
+
+// FIXIERTE METADATEN PRO BILD
+let imageDate = "";
+let imageTime = "";
+
+function setup() {
+  createCanvas(640, 480);
+  video = createCapture({ video: { facingMode: "user" }, audio: false });
+  video.size(width, height);
+  video.hide();
+  currentMode = generateColorMode();
+}
+
+function draw() {
+  background(0);
+
+  // ---------- ARCHIV ----------
+  if (showArchive) {
+    displayArchive();
+    return;
+  }
+
+  // ---------- LIVE VIEW ----------
+  if (showLiveView) {
+    push();
+    translate(width, height);
+    scale(-1, -1);
+    tint(255, 50);
+    image(video, 0, 0, width, height);
+    pop();
+
+    if (showHint) {
+      fill(255);
+      textSize(9);
+      textStyle(NORMAL);
+
+      if (firstStart) {
+        textAlign(LEFT, TOP);
+        text("RULE 11", 10, 10);
+
+        textAlign(RIGHT, TOP);
+        text("FF", width - 10, 10);
+
+        textAlign(CENTER, CENTER);
+        push();
+        translate(width / 2, height / 2 - 50);
+        scale(1, -1);
+        textSize(28);
+        textStyle(BOLD);
+        text("UPSIDE DOWN", 0, 0);
+        pop();
+
+        textSize(36);
+        text("PIXEL PORTRAIT", width / 2, height / 2 + 10);
+
+        textSize(9);
+        text("CLICK TO CREATE", width / 2, height / 2 + 50);
+        text("S TO SAVE, A FOR ARCHIVE", width / 2, height / 2 + 65);
+      } else {
+        textAlign(LEFT, TOP);
+        text("CLICK TO CREATE\nS TO SAVE\nA FOR ARCHIVE", 10, 20);
+      }
+    }
+  }
+
+  // ---------- PIXEL AUFBAU ----------
+  if (drawing && standbild && !finished) {
+    push();
+    translate(width, height);
+    scale(-1, -1);
+    standbild.loadPixels();
+
+    for (let l = 0; l < linesPerFrame; l++) {
+      let y = currentRow;
+
+      if (y >= height) {
+        finished = true;
+        drawing = false;
+        showLiveView = false;
+
+        // METADATEN FIXIEREN
+        let now = new Date();
+        imageDate = now.toLocaleDateString().toUpperCase();
+        imageTime =
+          now
+            .toLocaleTimeString("en-US", { hour12: false })
+            .toUpperCase() +
+          ":" +
+          nf(now.getMilliseconds(), 3);
+
+        // PIXELPORTRAIT BAUEN
+        pixelPortrait = createGraphics(width, height);
+        pixelPortrait.push();
+        pixelPortrait.translate(width, height);
+        pixelPortrait.scale(-1, -1);
+
+        for (let py = 0; py < height; py += step) {
+          for (let px = 0; px < width; px += step) {
+            let i = (py * width + px) * 4;
+            let r = standbild.pixels[i];
+            let g = standbild.pixels[i + 1];
+            let b = standbild.pixels[i + 2];
+            let bright = (r + g + b) / 255;
+            let c = lerpColor(currentMode.dark, currentMode.light, bright);
+            pixelPortrait.noStroke();
+            pixelPortrait.fill(c);
+            pixelPortrait.rect(px, py, step, step);
+          }
+        }
+
+        pixelPortrait.pop();
+
+        // INS ARCHIV (NUR PIXELBILD)
+        archive.push(pixelPortrait.get());
+        break;
+      }
+
+      for (let x = 0; x < width; x += step) {
+        let i = (y * width + x) * 4;
+        let bright =
+          (standbild.pixels[i] +
+            standbild.pixels[i + 1] +
+            standbild.pixels[i + 2]) /
+          255;
+        fill(lerpColor(currentMode.dark, currentMode.light, bright));
+        noStroke();
+        rect(x, y, step, step);
+      }
+      currentRow++;
+    }
+    pop();
+  }
+
+  // ---------- ENDBILD ----------
+  if (finished && pixelPortrait) {
+    image(pixelPortrait, 0, 0);
+
+    // INFO OVERLAY
+    fill(255);
+    textSize(9);
+    textStyle(NORMAL);
+
+    textAlign(LEFT, TOP);
+    text("IMAGE: " + imgCount, 10, 10);
+    text("DATE: " + imageDate, 10, 25);
+
+    textAlign(LEFT, BOTTOM);
+    text("TIME: " + imageTime, 10, height - 5);
+  }
+}
+
+// ---------- INPUT ----------
+function mousePressed() {
+  if (showArchive) {
+    handleArchiveClick();
+  } else {
+    handleCreate();
+  }
+}
+
+function keyPressed() {
+  if (keyCode === ENTER) handleCreate();
+
+  if (key === "a" || key === "A") {
+    if (archiveViewImage) {
+      archiveViewImage = null;
+    } else {
+      showArchive = !showArchive;
+    }
+  }
+
+  if (key === "s" || key === "S") {
+    if (archiveViewImage) {
+      save(archiveViewImage, "archive_pixel.png");
+    } else if (showArchive) {
+      saveCanvas("archive_overview", "png");
+    } else if (finished && pixelPortrait) {
+      save(pixelPortrait, "upside_down_pixel_" + imgCount + ".png");
+    }
+  }
+}
+
+// ---------- CREATE ----------
+function handleCreate() {
+  if (finished && !showLiveView) {
+    showLiveView = true;
+    showHint = true;
+    finished = false;
+    firstStart = false;
+  } else if (!showArchive) {
+    imgCount++;
+    currentMode = generateColorMode();
+    standbild = video.get();
+    currentRow = 0;
+    drawing = true;
+    finished = false;
+    showHint = false;
+    showLiveView = false;
+  }
+}
+
+// ---------- ARCHIV ----------
+function displayArchive() {
+  background(0);
+
+  // HEADER
+  fill(0);
+  rect(0, 0, width, archiveHeaderHeight);
+  fill(255);
+  textSize(9);
+  textAlign(LEFT, CENTER);
+  text(
+    "A TO CLOSE ARCHIVE / CLICK IMAGE TO VIEW / S TO SAVE",
+    10,
+    archiveHeaderHeight / 2
+  );
+
+  // GROSSANSICHT
+  if (archiveViewImage) {
+    image(
+      archiveViewImage,
+      0,
+      archiveHeaderHeight,
+      width,
+      height - archiveHeaderHeight
+    );
+    return;
+  }
+
+  let total = archive.length;
+  if (total === 0) return;
+
+  let cols = ceil(sqrt(total));
+  let rows = ceil(total / cols);
+  let margin = 5;
+
+  let usableH = height - archiveHeaderHeight;
+  let thumbW = (width - margin * (cols - 1)) / cols;
+  let thumbH = (usableH - margin * (rows - 1)) / rows;
+
+  for (let i = 0; i < total; i++) {
+    let x = (i % cols) * (thumbW + margin);
+    let y =
+      archiveHeaderHeight +
+      floor(i / cols) * (thumbH + margin);
+
+    let img = archive[i];
+    let ratio = min(thumbW / img.width, thumbH / img.height);
+    let w = img.width * ratio;
+    let h = img.height * ratio;
+
+    image(img, x + (thumbW - w) / 2, y + (thumbH - h) / 2, w, h);
+  }
+}
+
+function handleArchiveClick() {
+  if (archiveViewImage) return;
+
+  let total = archive.length;
+  let cols = ceil(sqrt(total));
+  let margin = 5;
+
+  let usableH = height - archiveHeaderHeight;
+  let thumbW = (width - margin * (cols - 1)) / cols;
+  let thumbH =
+    (usableH - margin * (ceil(total / cols) - 1)) /
+    ceil(total / cols);
+
+  for (let i = 0; i < total; i++) {
+    let x = (i % cols) * (thumbW + margin);
+    let y =
+      archiveHeaderHeight +
+      floor(i / cols) * (thumbH + margin);
+
+    if (
+      mouseX > x &&
+      mouseX < x + thumbW &&
+      mouseY > y &&
+      mouseY < y + thumbH
+    ) {
+      archiveViewImage = archive[i];
+      break;
+    }
+  }
+}
+
+// ---------- COLOR ----------
+function generateColorMode() {
+  return {
+    dark: color(random(0, 120), random(0, 120), random(0, 120)),
+    light: color(random(150, 255), random(150, 255), random(150, 255))
+  };
+}

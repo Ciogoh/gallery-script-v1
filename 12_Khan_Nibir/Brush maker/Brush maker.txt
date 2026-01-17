@@ -1,0 +1,233 @@
+let drawingLayer;
+let colorPicker, bgPicker, sizeSlider, alphaSlider, effectSelector;
+let shapeSelector, emojiInput; 
+let clearBtn, saveBtn, undoBtn;
+
+let history = [];
+const maxHistory = 10;
+let hueValue = 0; 
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  drawingLayer = createGraphics(windowWidth, windowHeight);
+  drawingLayer.background(0);
+  drawingLayer.strokeJoin(ROUND);
+  drawingLayer.strokeCap(ROUND);
+  
+  saveState();
+  setupUI();
+}
+
+function draw() {
+  background(50); 
+  image(drawingLayer, 0, 0);
+  
+  if (mouseIsPressed && mouseY < height - 120) {
+    drawFluidStroke();
+  }
+}
+
+function saveState() {
+  history.push(drawingLayer.get());
+  if (history.length > maxHistory) history.shift();
+}
+
+function undoEffect() {
+  if (history.length > 1) {
+    history.pop();
+    let previousState = history[history.length - 1];
+    drawingLayer.clear();
+    drawingLayer.image(previousState, 0, 0);
+  }
+}
+
+function mouseReleased() {
+  if (mouseY < height - 120) saveState();
+}
+
+function drawFluidStroke() {
+  let col = colorPicker.color();
+  let sz = sizeSlider.value();
+  let opac = alphaSlider.value();
+  let effect = effectSelector.value();
+  let shape = shapeSelector.value();
+  let bgColor = bgPicker.color();
+  
+  if (effect === 'Arcobaleno') {
+    colorMode(HSB, 360, 100, 100);
+    col = color(hueValue, 80, 100);
+    hueValue = (hueValue + 2) % 360;
+    colorMode(RGB, 255, 255, 255);
+  }
+  
+  col.setAlpha(opac);
+
+  let d = dist(pmouseX, pmouseY, mouseX, mouseY);
+  let steps = max(1, d / (sz / 8)); // Più denso per il blend
+
+  if (effect === 'Gomma') {
+    drawingLayer.stroke(bgColor);
+    drawingLayer.strokeWeight(sz * 2);
+    drawingLayer.line(pmouseX, pmouseY, mouseX, mouseY);
+  } 
+  else {
+    for (let i = 0; i <= steps; i++) {
+      let t = i / steps;
+      let x = lerp(pmouseX, mouseX, t);
+      let y = lerp(pmouseY, mouseY, t);
+      
+      if (effect === 'Blend') {
+        drawBlendBrush(x, y, sz, col);
+      } else if (effect === 'Calligrafico') {
+        let speed = dist(pmouseX, pmouseY, mouseX, mouseY);
+        let dynamicSize = map(speed, 0, 50, sz, sz / 4);
+        drawingLayer.noStroke();
+        drawingLayer.fill(col);
+        drawBaseShape(x, y, dynamicSize, shape);
+      } 
+      else if (effect === 'Neon') {
+        drawNeonShape(x, y, sz, col, shape, opac);
+      } 
+      else if (effect === 'Aerografo') {
+        drawAirbrush(x, y, sz, col);
+      }
+      else if (effect === 'Particelle') {
+        drawingLayer.noStroke();
+        drawingLayer.fill(col);
+        drawingLayer.ellipse(x + random(-sz, sz), y + random(-sz, sz), random(2, sz/3));
+      }
+      else if (effect === 'Sketchy') {
+        drawSketchy(x, y, sz, col);
+      }
+      else {
+        drawingLayer.noStroke();
+        drawingLayer.fill(col);
+        drawBaseShape(x, y, sz, shape);
+      }
+    }
+  }
+}
+
+// NUOVA FUNZIONE: Pennello Sfumato (Blend)
+function drawBlendBrush(x, y, sz, col) {
+  drawingLayer.noStroke();
+  for (let r = sz; r > 0; r -= 2) {
+    let alpha = map(r, 0, sz, col.levels[3], 0);
+    drawingLayer.fill(red(col), green(col), blue(col), alpha * 0.1); // Molto leggero per accumulo
+    drawingLayer.ellipse(x, y, r);
+  }
+}
+
+function drawAirbrush(x, y, sz, col) {
+  drawingLayer.noStroke();
+  drawingLayer.fill(col);
+  for (let i = 0; i < 10; i++) {
+    let r = random(sz / 2);
+    let angle = random(TWO_PI);
+    drawingLayer.ellipse(x + cos(angle)*r, y + sin(angle)*r, 1.5);
+  }
+}
+
+function drawSketchy(x, y, sz, col) {
+  drawingLayer.stroke(col);
+  drawingLayer.strokeWeight(1);
+  for (let i = 0; i < 2; i++) {
+    drawingLayer.line(x + random(-sz, sz), y + random(-sz, sz), x + random(-sz, sz), y + random(-sz, sz));
+  }
+}
+
+function drawBaseShape(x, y, sz, shape) {
+  if (shape === 'Cerchio') drawingLayer.ellipse(x, y, sz);
+  else if (shape === 'Quadrato') {
+    drawingLayer.rectMode(CENTER);
+    drawingLayer.rect(x, y, sz, sz);
+  }
+  else if (shape === 'Stella') {
+    drawStar(x, y, sz/2, sz, 5);
+  }
+  else if (shape === 'Emoji') {
+    drawingLayer.textSize(sz);
+    drawingLayer.textAlign(CENTER, CENTER);
+    drawingLayer.text(emojiInput.value(), x, y);
+  }
+}
+
+function drawStar(x, y, r1, r2, npoints) {
+  let angle = TWO_PI / npoints;
+  let halfAngle = angle / 2.0;
+  drawingLayer.beginShape();
+  for (let a = 0; a < TWO_PI; a += angle) {
+    drawingLayer.vertex(x + cos(a) * r2, y + sin(a) * r2);
+    drawingLayer.vertex(x + cos(a + halfAngle) * r1, y + sin(a + halfAngle) * r1);
+  }
+  drawingLayer.endShape(CLOSE);
+}
+
+function drawNeonShape(x, y, sz, col, shape, opac) {
+  for (let j = 3; j > 0; j--) {
+    let glowAlpha = map(j, 1, 3, opac * 0.3, 0);
+    drawingLayer.fill(red(col), green(col), blue(col), glowAlpha);
+    drawBaseShape(x, y, sz + (j * 10), shape);
+  }
+  drawingLayer.fill(255, opac);
+  drawBaseShape(x, y, sz, shape);
+}
+
+function setupUI() {
+  const uiY = height - 100;
+  const labelStyle = 'color: white; font-family: sans-serif; font-size: 10px; font-weight: bold;';
+
+  createLabel('COLORE', 20, uiY, labelStyle);
+  colorPicker = createColorPicker('#39FF14').position(20, uiY + 15);
+
+  createLabel('SFONDO', 120, uiY, labelStyle);
+  bgPicker = createColorPicker('#000000').position(120, uiY + 15);
+  bgPicker.input(() => { drawingLayer.background(bgPicker.color()); saveState(); });
+
+  createLabel('DIMENSIONE', 220, uiY, labelStyle);
+  sizeSlider = createSlider(5, 150, 40).position(220, uiY + 15);
+
+  createLabel('OPACITÀ', 400, uiY, labelStyle);
+  alphaSlider = createSlider(0, 255, 150).position(400, uiY + 15);
+
+  createLabel('EFFETTO', 20, uiY + 45, labelStyle);
+  effectSelector = createSelect().position(20, uiY + 60);
+  effectSelector.option('Semplice'); 
+  effectSelector.option('Blend'); // Pennello Sfumato
+  effectSelector.option('Neon');
+  effectSelector.option('Aerografo'); 
+  effectSelector.option('Calligrafico');
+  effectSelector.option('Sketchy'); 
+  effectSelector.option('Particelle');
+  effectSelector.option('Arcobaleno'); 
+  effectSelector.option('Gomma');
+
+  createLabel('FORMA', 150, uiY + 45, labelStyle);
+  shapeSelector = createSelect().position(150, uiY + 60);
+  shapeSelector.option('Cerchio'); 
+  shapeSelector.option('Quadrato');
+  shapeSelector.option('Stella'); 
+  shapeSelector.option('Emoji');
+
+  createLabel('EMOJI', 280, uiY + 45, labelStyle);
+  emojiInput = createInput('✨').position(280, uiY + 60).size(40);
+
+  undoBtn = createButton('ANNULLA').position(400, uiY + 60);
+  undoBtn.style('background', '#ffcc00');
+  undoBtn.mousePressed(undoEffect);
+
+  clearBtn = createButton('PULISCI').position(480, uiY + 60);
+  clearBtn.style('background', '#ff4444'); 
+  clearBtn.style('color', 'white');
+  clearBtn.mousePressed(() => { drawingLayer.background(bgPicker.color()); saveState(); });
+
+  saveBtn = createButton('SALVA').position(560, uiY + 60);
+  saveBtn.mousePressed(() => saveCanvas(drawingLayer, 'my_art', 'png'));
+}
+
+function createLabel(txt, x, y, style) {
+  let l = createElement('span', txt);
+  l.position(x, y); l.style(style);
+}
+
+function windowResized() { resizeCanvas(windowWidth, windowHeight); }

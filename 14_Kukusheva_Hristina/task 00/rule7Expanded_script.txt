@@ -1,0 +1,46 @@
+let btnGenerate;
+let btnSave;
+
+function setup() {
+  createCanvas(400, 400);
+  background(255);
+
+  // Bottone per generare un nuovo rettangolo
+  btnGenerate = createButton("Genera nuovo rettangolo");
+  btnGenerate.position(10, height + 10);
+  btnGenerate.mousePressed(generateRectangle);
+
+  // Bottone per salvare manualmente
+  btnSave = createButton("Salva immagine");
+  btnSave.position(200, height + 10);
+  btnSave.mousePressed(() => saveCanvas("rettangolo_casuale", "png"));
+
+  // Disegno iniziale
+  generateRectangle();
+}
+
+function draw() {
+  // Non serve aggiornare continuamente
+}
+
+// --- FUNZIONE PRINCIPALE: genera un rettangolo casuale ---
+function generateRectangle() {
+  background(255);
+
+  // Colore casuale
+  let r = random(255);
+  let g = random(255);
+  let b = random(255);
+  fill(r, g, b);
+  noStroke();
+
+  // Dimensioni casuali
+  let size = random(50, 250);
+
+  // Posizione casuale (centrata sul rettangolo)
+  let x = random(size / 2, width - size / 2);
+  let y = random(size / 2, height - size / 2);
+
+  rectMode(CENTER);
+  rect(x, y, size, size);
+}

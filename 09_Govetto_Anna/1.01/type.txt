@@ -1,0 +1,320 @@
+
+let state = "MENU";
+let guiVisible = false;
+let guiWidth = 280;
+let guiScrollY = 0; 
+
+let inputField, sizeSlider, stretchSlider, waveSlider, rotateSlider, shapeSelect, weightSlider, shapeSizeSlider;
+let textColorPicker, strokeColorPicker, bgColorPicker;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  
+  // UI CONTROLS
+  inputField = createInput('TYPE DESIGN');
+  sizeSlider = createSlider(10, 500, 120);
+  stretchSlider = createSlider(0.2, 5, 1, 0.1);
+  waveSlider = createSlider(0, 200, 0);
+  rotateSlider = createSlider(0, TWO_PI, 0, 0.01);
+  
+  shapeSelect = createSelect();
+  shapeSelect.option('FULL SCREEN');
+  shapeSelect.option('SQUARE');
+  shapeSelect.option('CIRCLE');
+  shapeSelect.option('RECTANGLE');
+  
+  weightSlider = createSlider(1, 50, 4);
+  shapeSizeSlider = createSlider(50, 1000, 500);
+
+  // COLOR PICKERS with specific roles
+  textColorPicker = createColorPicker('#1E1E1E');
+  strokeColorPicker = createColorPicker('#FF007F');
+  bgColorPicker = createColorPicker('#FFFFFF');
+
+  hideUI();
+}
+
+function draw() {
+  if (state === "MENU") {
+    drawMenu();
+  } else if (state === "APP") {
+    background(bgColorPicker.color());
+    
+    push();
+    translate(width / 2, height / 2);
+    renderTypography(); 
+    pop();
+
+    if (guiVisible) {
+      drawSidebar();
+      showUI();
+      updateUIPositions();
+    } else {
+      hideUI();
+    }
+
+    drawMenuButton();
+  }
+}
+
+function drawMenu() {
+  background(255, 0, 127);
+  textAlign(CENTER, CENTER);
+  fill(255);
+  textSize(50);
+  textStyle(BOLD);
+  text("TYPE TOOL PRO", width / 2, height / 2 - 50);
+  
+  noFill();
+  stroke(255);
+  strokeWeight(2);
+  rectMode(CENTER);
+  rect(width / 2, height / 2 + 50, 200, 50, 25);
+  noStroke();
+  fill(255);
+  textSize(18);
+  text("START DESIGN", width / 2, height / 2 + 50);
+}
+
+function renderTypography() {
+  let txt = inputField.value();
+  let sz = sizeSlider.value();
+  let str = stretchSlider.value();
+  let wv = waveSlider.value();
+  let rot = rotateSlider.value();
+  let weight = weightSlider.value();
+  let fSize = shapeSizeSlider.value();
+  let frameType = shapeSelect.value();
+
+  stroke(strokeColorPicker.color());
+  strokeWeight(weight);
+  noFill();
+  rectMode(CENTER);
+
+  if (frameType === 'SQUARE') rect(0, 0, fSize, fSize);
+  else if (frameType === 'CIRCLE') ellipse(0, 0, fSize, fSize);
+  else if (frameType === 'RECTANGLE') rect(0, 0, fSize * 1.5, fSize * 0.5);
+  
+  push();
+  rotate(rot);
+  textAlign(CENTER, CENTER);
+  textSize(sz);
+  textFont('Arial Black');
+  fill(textColorPicker.color());
+  noStroke();
+
+  for (let i = 0; i < txt.length; i++) {
+    let spacing = sz * 0.55 * str;
+    let x = (i - (txt.length - 1) / 2) * spacing;
+    let y = sin(frameCount * 0.05 + i * 0.5) * wv;
+    push();
+    translate(x, y);
+    scale(str, 1);
+    text(txt[i], 0, 0);
+    pop();
+  }
+  pop();
+}
+
+function drawSidebar() {
+  push();
+  noStroke();
+  fill(255, 252); 
+  rectMode(CORNER);
+  rect(width - guiWidth, 0, guiWidth, height);
+  stroke(230);
+  line(width - guiWidth, 0, width - guiWidth, height);
+
+  // CLIPPING AREA FOR SCROLLING LABELS
+  drawingContext.save();
+  noStroke();
+  rect(width - guiWidth, 0, guiWidth, height - 90);
+  drawingContext.clip();
+
+  fill(80);
+  textSize(9);
+  textStyle(BOLD);
+  textAlign(LEFT, TOP);
+  let startX = width - guiWidth + 25;
+  let startY = 80 + guiScrollY; 
+  
+  let labels = [
+    "TEXT CONTENT", "FONT SIZE", "STRETCH", "WAVE MOTION", 
+    "ROTATION", "SHAPE TYPE", "SHAPE WEIGHT", "SHAPE SIZE"
+  ];
+  
+  for(let i = 0; i < labels.length; i++) {
+    text(labels[i], startX, startY + (i * 65));
+  }
+
+  // COLOR LABELS (Specific for each picker)
+  let colorY = startY + (8 * 65);
+  text("TEXT COLOR", startX, colorY);
+  text("STROKE", startX + 70, colorY);
+  text("BG COLOR", startX + 140, colorY);
+
+  drawingContext.restore();
+
+  // BOTTOM EXPORT PANEL (Fixed)
+  noStroke();
+  fill(255); 
+  rect(width - guiWidth + 1, height - 90, guiWidth - 1, 90);
+  
+  fill(255, 0, 127);
+  rect(startX, height - 65, guiWidth - 50, 45, 10);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(13);
+  text("EXPORT PNG", width - guiWidth/2, height - 42);
+  pop();
+}
+
+function updateUIPositions() {
+  let x = width - guiWidth + 25;
+  let y = 100 + guiScrollY; 
+  let step = 65; 
+  let hideLimit = height - 130;
+
+  let elements = [inputField, sizeSlider, stretchSlider, waveSlider, rotateSlider, shapeSelect, weightSlider, shapeSizeSlider];
+  
+  for (let i = 0; i < elements.length; i++) {
+    let currentY = y + (i * step);
+    if (currentY > hideLimit || currentY < 20) elements[i].position(-500, -500); 
+    else elements[i].position(x, currentY);
+  }
+
+  // COLORS ROW POSITIONS
+  let colorY = y + (8 * step) + 20;
+  if (colorY > hideLimit || colorY < 20) {
+    textColorPicker.position(-500, -500);
+    strokeColorPicker.position(-500, -500);
+    bgColorPicker.position(-500, -500);
+  } else {
+    textColorPicker.position(x, colorY);
+    strokeColorPicker.position(x + 70, colorY);
+    bgColorPicker.position(x + 140, colorY);
+  }
+
+  // SIZING
+  let w = guiWidth - 50;
+  inputField.size(w);
+  sizeSlider.size(w);
+  stretchSlider.size(w);
+  waveSlider.size(w);
+  rotateSlider.size(w);
+  shapeSelect.size(w + 10);
+  weightSlider.size(w);
+  shapeSizeSlider.size(w);
+  
+  textColorPicker.size(50, 30);
+  strokeColorPicker.size(50, 30);
+  bgColorPicker.size(50, 30);
+}
+
+function mouseWheel(event) {
+  if (guiVisible && mouseX > width - guiWidth) {
+    guiScrollY -= event.delta;
+    guiScrollY = constrain(guiScrollY, -400, 0);
+  }
+}
+
+function exportCropped() {
+  let frameType = shapeSelect.value();
+  let fSize = shapeSizeSlider.value();
+  let exportSizeW = fSize + 150;
+  let exportSizeH = fSize + 150;
+  
+  if (frameType === 'RECTANGLE') { exportSizeW = fSize * 1.8; exportSizeH = fSize * 0.8; }
+  if (frameType === 'FULL SCREEN') { exportSizeW = width; exportSizeH = height; }
+
+  let pg = createGraphics(exportSizeW, exportSizeH);
+  pg.translate(exportSizeW / 2, exportSizeH / 2);
+  pg.background(bgColorPicker.color());
+  
+  let txt = inputField.value();
+  let sz = sizeSlider.value();
+  let str = stretchSlider.value();
+  let wv = waveSlider.value();
+  let rot = rotateSlider.value();
+  let weight = weightSlider.value();
+
+  pg.stroke(strokeColorPicker.color());
+  pg.strokeWeight(weight);
+  pg.noFill();
+  pg.rectMode(CENTER);
+
+  if (frameType === 'SQUARE') pg.rect(0, 0, fSize, fSize);
+  else if (frameType === 'CIRCLE') pg.ellipse(0, 0, fSize, fSize);
+  else if (frameType === 'RECTANGLE') pg.rect(0, 0, fSize * 1.5, fSize * 0.5);
+
+  pg.push();
+  pg.rotate(rot);
+  pg.textAlign(CENTER, CENTER);
+  pg.textSize(sz);
+  pg.textFont('Arial Black');
+  pg.fill(textColorPicker.color());
+  pg.noStroke();
+
+  for (let i = 0; i < txt.length; i++) {
+    let spacing = sz * 0.55 * str;
+    let x = (i - (txt.length - 1) / 2) * spacing;
+    let y = sin(frameCount * 0.05 + i * 0.5) * wv;
+    pg.push();
+    pg.translate(x, y);
+    pg.scale(str, 1);
+    pg.text(txt[i], 0, 0);
+    pg.pop();
+  }
+  pg.pop();
+
+  save(pg, 'type_design_final.png');
+}
+
+function hideUI() {
+  inputField.hide(); sizeSlider.hide(); stretchSlider.hide();
+  waveSlider.hide(); rotateSlider.hide(); shapeSelect.hide(); 
+  weightSlider.hide(); shapeSizeSlider.hide();
+  textColorPicker.hide(); strokeColorPicker.hide(); bgColorPicker.hide();
+}
+
+function showUI() {
+  inputField.show(); sizeSlider.show(); stretchSlider.show();
+  waveSlider.show(); rotateSlider.show(); shapeSelect.show(); 
+  weightSlider.show(); shapeSizeSlider.show();
+  textColorPicker.show(); strokeColorPicker.show(); bgColorPicker.show();
+}
+
+function drawMenuButton() {
+  push();
+  translate(width - 40, 40);
+  fill(255, 0, 127);
+  noStroke();
+  ellipse(0, 0, 35, 35);
+  stroke(255);
+  strokeWeight(2.5);
+  noFill();
+  if (guiVisible) {
+    line(-4, -4, 4, 0); line(-4, 4, 4, 0);
+  } else {
+    line(4, -4, -4, 0); line(4, 4, -4, 0);
+  }
+  pop();
+}
+
+function mousePressed() {
+  if (state === "MENU") {
+    if (dist(mouseX, mouseY, width / 2, height / 2 + 50) < 100) state = "APP";
+  } else if (state === "APP") {
+    if (dist(mouseX, mouseY, width - 40, 40) < 25) {
+      guiVisible = !guiVisible;
+      guiScrollY = 0;
+    }
+    if (guiVisible && mouseX > width - guiWidth + 25 && mouseX < width - 25 && mouseY > height - 70 && mouseY < height - 20) {
+      exportCropped();
+    }
+  }
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}

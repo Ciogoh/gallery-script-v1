@@ -1,0 +1,94 @@
+let word = "Kikiii";
+let colors = [];
+let btnRandomize;
+let btnSave;
+
+function setup() {
+  createCanvas(800, 600);
+  pixelDensity(2);
+
+  textAlign(CENTER, CENTER);
+  textSize(200);
+  textStyle(BOLD);
+
+  // Bottone per rigenerare i colori
+  btnRandomize = createButton("Colori casuali");
+  btnRandomize.position(10, height + 10);
+  btnRandomize.mousePressed(generateRandomColors);
+
+  // Bottone per salvare manualmente
+  btnSave = createButton("Salva PNG");
+  btnSave.position(150, height + 10);
+  btnSave.mousePressed(() => saveCanvas("Kikiii_custom", "png"));
+
+  // Genera colori iniziali
+  generateRandomColors();
+}
+
+function draw() {
+  drawScene();
+}
+
+// --- FUNZIONI PRINCIPALI ---
+
+function drawScene() {
+  background(255, 0, 255); // fucsia
+
+  drawStars(150); // stelline di sfondo
+
+  // Calcolo posizione lettere
+  let totalWidth = textWidth(word);
+  let xStart = width / 2 - totalWidth / 2;
+  let yPos = height / 2;
+
+  // Disegno lettere
+  for (let i = 0; i < word.length; i++) {
+    let c = word.charAt(i);
+    let charWidth = textWidth(c);
+    let x = xStart + charWidth / 2;
+
+    stroke(0);
+    strokeWeight(8);
+    fill(colors[i]);
+    text(c, x, yPos);
+
+    xStart += charWidth;
+  }
+}
+
+// Genera colori casuali per ogni lettera
+function generateRandomColors() {
+  colors = [];
+  for (let i = 0; i < word.length; i++) {
+    colors.push(color(random(255), random(255), random(255)));
+  }
+  redraw();
+}
+
+// Disegna stelline casuali sullo sfondo
+function drawStars(amount) {
+  noStroke();
+  for (let i = 0; i < amount; i++) {
+    let x = random(width);
+    let y = random(height);
+    let s = random(2, 6);
+    fill(255);
+    drawStar(x, y, s, s / 2, 5);
+  }
+}
+
+// Funzione per disegnare una stellina
+function drawStar(x, y, radius1, radius2, npoints) {
+  let angle = TWO_PI / npoints;
+  let halfAngle = angle / 2.0;
+  beginShape();
+  for (let a = 0; a < TWO_PI; a += angle) {
+    let sx = x + cos(a) * radius1;
+    let sy = y + sin(a) * radius1;
+    vertex(sx, sy);
+    sx = x + cos(a + halfAngle) * radius2;
+    sy = y + sin(a + halfAngle) * radius2;
+    vertex(sx, sy);
+  }
+  endShape(CLOSE);
+}

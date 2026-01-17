@@ -1,0 +1,225 @@
+
+let state = "MENU"; 
+let guiWidth = 220;
+let brushSize = 40;
+let brushSpeed = 0; 
+let angle = 0;
+let charIndex = 0;
+let inputField;
+let spacingSlider;
+
+let layers = [];
+let activeLayer = 0;
+let history = []; 
+let layerSettings = [
+  { visible: true, locked: false, name: "Layer 1" },
+  { visible: true, locked: false, name: "Layer 2" },
+  { visible: true, locked: false, name: "Layer 3" }
+];
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  
+  for (let i = 0; i < 3; i++) {
+    layers[i] = createGraphics(windowWidth, windowHeight);
+    layers[i].clear();
+  }
+  
+  inputField = createInput('HELLO KITTY');
+  inputField.position(20, 80);
+  inputField.size(160);
+  inputField.hide(); 
+
+  spacingSlider = createSlider(5, 100, 25);
+  spacingSlider.position(20, 130);
+  spacingSlider.size(160);
+  spacingSlider.hide();
+}
+
+function draw() {
+  if (state === "MENU") {
+    drawMenu();
+  } else if (state === "APP") {
+    drawApp();
+  }
+}
+
+function drawMenu() {
+  background(255, 200, 220); 
+  inputField.hide();
+  spacingSlider.hide();
+  
+  rectMode(CENTER);
+  fill(255, 0, 127);
+  rect(width/2, height/2, 220, 70, 15);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(28);
+  text("START", width/2, height/2);
+  fill(0);
+  textSize(40);
+  text("🎀 PRO LAYER BRUSH 🎀", width/2, height/2 - 100);
+}
+
+function drawApp() {
+  background(255, 230, 240);
+  inputField.show();
+  spacingSlider.show();
+
+  for (let i = 0; i < layers.length; i++) {
+    if (layerSettings[i].visible) {
+      image(layers[i], 0, 0);
+    }
+  }
+
+  drawGUI();
+
+  if (mouseIsPressed && mouseX > guiWidth) {
+    if (!layerSettings[activeLayer].locked && layerSettings[activeLayer].visible) {
+      drawTextBrush(layers[activeLayer]);
+    }
+  }
+}
+
+function drawGUI() {
+  push();
+  noStroke();
+  fill(250, 250, 250, 250);
+  rectMode(CORNER);
+  rect(0, 0, guiWidth, height);
+  
+  fill(0);
+  textAlign(LEFT, TOP);
+  textSize(13);
+  text("BRUSH TEXT:", 20, 60);
+  text("SPACING:", 20, 110);
+  text("LAYERS (Select):", 20, 175);
+  
+  for (let i = 0; i < layerSettings.length; i++) {
+    let y = 200 + (i * 55);
+    
+    if (activeLayer === i) {
+      fill(255, 0, 127, 40);
+      stroke(255, 0, 127);
+      strokeWeight(1);
+    } else {
+      fill(230);
+      noStroke();
+    }
+    rect(10, y - 5, guiWidth - 20, 45, 5);
+    
+    noStroke();
+    fill(0);
+    textSize(11);
+    text(layerSettings[i].name, 25, y);
+    
+    textSize(8);
+    fill(layerSettings[i].visible ? "#008000" : "#FF0000");
+    text(layerSettings[i].visible ? "VISIBLE" : "HIDDEN", 100, y);
+    fill(layerSettings[i].locked ? "#FF0000" : "#666666");
+    text(layerSettings[i].locked ? "LOCKED" : "UNLOCKED", 100, y + 12);
+  }
+
+  // BOTTONE DOWNLOAD - Rosa e testo Inglese
+  fill(255, 0, 127); 
+  rect(20, height - 50, guiWidth - 40, 35, 10);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(11);
+  text("💾 DOWNLOAD PNG", guiWidth/2, height - 33);
+
+  // INSTRUCTIONS IN ENGLISH
+  fill(80);
+  textAlign(LEFT, TOP);
+  textSize(9);
+  let ty = 375;
+  text("1-2-3: Size", 20, ty);
+  text("4: Rotation ON/OFF", 20, ty + 15);
+  text("Z: Undo", 20, ty + 30);
+  text("V: Visibility / L: Lock", 20, ty + 45);
+  text("C: Clear Layer", 20, ty + 60);
+  pop();
+}
+
+function drawTextBrush(pg) {
+  let spacing = spacingSlider.value();
+  let d = dist(mouseX, mouseY, pmouseX, pmouseY);
+  let txt = inputField.value() + " ";
+  
+  if (d > spacing) {
+    pg.push();
+    pg.translate(mouseX, mouseY);
+    if (brushSpeed > 0) angle += brushSpeed;
+    else angle = 0;
+    pg.rotate(angle);
+    pg.fill(random(200, 255), 0, random(100, 200));
+    pg.noStroke();
+    pg.textSize(brushSize);
+    pg.textAlign(CENTER, CENTER);
+    let char = txt.charAt(charIndex);
+    pg.text(char, 0, 0);
+    charIndex = (charIndex + 1) % txt.length;
+    pg.pop();
+  }
+}
+
+function mousePressed() {
+  if (state === "MENU") {
+    if (mouseX > width/2 - 110 && mouseX < width/2 + 110 && mouseY > height/2 - 35 && mouseY < height/2 + 35) {
+      state = "APP";
+    }
+  } else if (state === "APP") {
+    if (mouseX > 20 && mouseX < guiWidth - 20 && mouseY > height - 50 && mouseY < height - 15) {
+      downloadCanvas();
+    }
+
+    for (let i = 0; i < 3; i++) {
+      let y = 200 + (i * 55);
+      if (mouseX > 10 && mouseX < guiWidth - 10 && mouseY > y - 5 && mouseY < y + 40) {
+        activeLayer = i;
+      }
+    }
+    
+    if (mouseX > guiWidth) {
+      saveToHistory();
+    }
+  }
+}
+
+function downloadCanvas() {
+  // Nome file cambiato in "brush tool" come richiesto
+  let exportImage = createGraphics(width, height);
+  for (let i = 0; i < layers.length; i++) {
+    if (layerSettings[i].visible) {
+      exportImage.image(layers[i], 0, 0);
+    }
+  }
+  save(exportImage, "brush tool.png");
+}
+
+function saveToHistory() {
+  let snapshot = createGraphics(width, height);
+  snapshot.image(layers[activeLayer], 0, 0);
+  history.push({layerIdx: activeLayer, data: snapshot});
+  if (history.length > 20) history.shift();
+}
+
+function undo() {
+  if (history.length > 0) {
+    let last = history.pop();
+    layers[last.layerIdx].clear();
+    layers[last.layerIdx].image(last.data, 0, 0);
+  }
+}
+
+function keyPressed() {
+  if (document.activeElement === inputField.elt) return;
+  if (key === '1') brushSize = 20;
+  if (key === '2') brushSize = 50;
+  if (key === '3') brushSize = 100;
+  if (key === '4') brushSpeed = (brushSpeed === 0) ? 0.3 : 0;
+  if (key === 'z' || key === 'Z') undo();
+  if (key === 'v' || key === 'V') layerSettings[activeLayer].visible = !layerSettings[activeLayer].visible;
+  if (key === 'l' || key === 'L') layerSettings[activeLayer].locked = !layerSettings[activeLayer].locked;
+  if (key === 'c' || key === 'C') layers[activeLayer].clear();
+}

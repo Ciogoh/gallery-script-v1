@@ -1,0 +1,214 @@
+let gridSize = 5;
+let dots = [];
+let spacing;
+let mic;
+let showStartScreen = true;
+let cursorParticles = [];
+let deleteMode = false;
+
+let delBtn = { x: 780, y: 20, r: 20 };
+
+function setup() {
+  createCanvas(800, 800);
+  spacing = width / (gridSize + 1);
+
+  // Mic starten (nur für Dot-Aufnahme)
+  mic = new p5.AudioIn();
+  mic.start();
+
+  // Dots erstellen
+  for (let i = 0; i < gridSize; i++) {
+    for (let j = 0; j < gridSize; j++) {
+      let gridDot = {
+        x: (i + 1) * spacing,
+        y: (j + 1) * spacing,
+        active: false,
+        color: color(random(100, 255), random(100, 255), random(100, 255)),
+        recordable: true,
+        countdown: 0,
+        recordingLoop: false,
+        soundFile: null,
+        loopPlaying: false,
+        recorder: new p5.SoundRecorder(),
+        tempFile: new p5.SoundFile()
+      };
+      gridDot.recorder.setInput(mic);
+      dots.push(gridDot);
+    }
+  }
+}
+
+function draw() {
+  background(255);
+
+  if (showStartScreen) {
+    drawStartScreen();
+    return;
+  }
+
+  // DEL Button
+  fill(deleteMode ? color(0, 200, 0) : color(255, 0, 0));
+  ellipse(delBtn.x, delBtn.y, delBtn.r * 2);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  text("DEL", delBtn.x, delBtn.y);
+
+  // Rasterpunkte
+  for (let gridDot of dots) {
+    let vol = 0;
+    if (gridDot.recordingLoop) vol = mic.getLevel();
+    let size = 50 + vol * 300;
+    fill(gridDot.active ? gridDot.color : 200);
+    ellipse(gridDot.x, gridDot.y, size);
+
+    if (gridDot.countdown > 0) {
+      fill(0);
+      textSize(20);
+      textAlign(CENTER, CENTER);
+      text(gridDot.countdown, gridDot.x, gridDot.y);
+    }
+
+    if (gridDot.loopPlaying) {
+      fill(0);
+      ellipse(gridDot.x, gridDot.y, 10);
+    }
+  }
+}
+
+// ---------------- Start Screen ----------------
+function drawStartScreen() {
+  background(255);
+  fill(0);
+  textSize(16);
+  textAlign(LEFT, TOP);
+  text("RULE 3", 10, 10);
+  textAlign(RIGHT, TOP);
+  text("FF", width - 10, 10);
+
+  let titleX = width / 2;
+  let titleY = height / 2 - 40;
+  textSize(60);
+  textAlign(CENTER, CENTER);
+  fill(0);
+  text("SOUND DOTS", titleX, titleY);
+
+  textSize(16);
+  textAlign(CENTER, TOP);
+  fill(0);
+  text(
+    "Click circles to record sound",
+    width / 2,
+    titleY + 40
+  );
+
+  let w = textWidth("SOUND DOTS");
+  let h = 60;
+  if (
+    mouseX > titleX - w / 2 && mouseX < titleX + w / 2 &&
+    mouseY > titleY - h / 2 && mouseY < titleY + h / 2
+  ) {
+    if (frameCount % 2 === 0) {
+      let p = {
+        x: random(width),
+        y: random(height / 2 - 60, height / 2 + 60),
+        size: random(3, 12),
+        color: color(random(255), random(255), random(255)),
+        vx: random(-1.5, 1.5),
+        vy: random(-1.5, 1.5),
+        life: random(80, 150)
+      };
+      cursorParticles.push(p);
+    }
+  }
+
+  for (let i = cursorParticles.length - 1; i >= 0; i--) {
+    let p = cursorParticles[i];
+    fill(p.color);
+    noStroke();
+    ellipse(p.x, p.y, p.size);
+    p.x += p.vx;
+    p.y += p.vy;
+    p.x = constrain(p.x, 0, width);
+    p.y = constrain(p.y, 0, height);
+    p.life--;
+    if (p.life <= 0) cursorParticles.splice(i, 1);
+  }
+}
+
+// ---------------- Countdown & Dot Recording ----------------
+function startCountdown(gridDot) {
+  gridDot.countdown = 3;
+  let interval = setInterval(() => {
+    gridDot.countdown--;
+    if (gridDot.countdown <= 0) {
+      clearInterval(interval);
+      gridDot.countdown = 0;
+      startDotRecording(gridDot);
+    }
+  }, 1000);
+}
+
+function startDotRecording(gridDot) {
+  gridDot.recordingLoop = true;
+  gridDot.active = true;
+  gridDot.tempFile = new p5.SoundFile();
+  gridDot.recorder.record(gridDot.tempFile);
+  gridDot.loopPlaying = false;
+  console.log("Dot Aufnahme gestartet");
+}
+
+function stopDotRecording(gridDot) {
+  gridDot.recorder.stop();
+  gridDot.recordingLoop = false;
+  gridDot.active = true;
+  gridDot.soundFile = gridDot.tempFile;
+  gridDot.loopPlaying = false;
+  console.log("Dot Aufnahme gestoppt");
+}
+
+// ---------------- Mouse Pressed ----------------
+function mousePressed() {
+  getAudioContext().resume();
+
+  if (showStartScreen) {
+    showStartScreen = false;
+    return;
+  }
+
+  // DEL Button
+  if (dist(mouseX, mouseY, delBtn.x, delBtn.y) < delBtn.r) {
+    deleteMode = !deleteMode;
+    return;
+  }
+
+  // Rasterpunkte
+  for (let gridDot of dots) {
+    if (dist(mouseX, mouseY, gridDot.x, gridDot.y) < 50 / 2) {
+      if (deleteMode) {
+        if (gridDot.recordable && gridDot.soundFile) {
+          gridDot.soundFile.stop();
+          gridDot.soundFile = null;
+          gridDot.loopPlaying = false;
+          gridDot.active = false;
+        }
+      } else {
+        if (gridDot.recordable && !gridDot.recordingLoop && !gridDot.soundFile && gridDot.countdown === 0) {
+          startCountdown(gridDot);
+        } else if (gridDot.recordingLoop) {
+          stopDotRecording(gridDot);
+        } else if (gridDot.soundFile) {
+          if (!gridDot.loopPlaying) {
+            gridDot.soundFile.loop();
+            gridDot.loopPlaying = true;
+            gridDot.active = true;
+          } else {
+            gridDot.soundFile.stop();
+            gridDot.loopPlaying = false;
+            gridDot.active = false;
+          }
+        }
+      }
+      break;
+    }
+  }
+}

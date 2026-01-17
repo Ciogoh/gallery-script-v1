@@ -1,0 +1,155 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+    font-family: 'Space Mono', monospace;
+    background: #0a0a0a;
+    color: #00ff9f;
+    cursor: crosshair;
+}
+
+main {
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+canvas {
+    display: block;
+    box-shadow: 0 0 60px rgba(0, 255, 159, 0.1);
+}
+
+/* Title Overlay */
+#title {
+    position: fixed;
+    top: 30px;
+    left: 30px;
+    z-index: 100;
+    pointer-events: none;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 2.5em;
+    letter-spacing: 0.1em;
+    color: #00ff9f;
+    text-shadow: 0 0 20px rgba(0, 255, 159, 0.5),
+                 0 0 40px rgba(0, 255, 159, 0.3);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+#subtitle {
+    position: fixed;
+    top: 90px;
+    left: 35px;
+    z-index: 100;
+    pointer-events: none;
+    font-size: 0.9em;
+    letter-spacing: 0.3em;
+    color: #00ff9f80;
+    text-transform: uppercase;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Instructions */
+#instructions {
+    position: fixed;
+    bottom: 30px;
+    left: 30px;
+    z-index: 100;
+    pointer-events: none;
+    font-size: 0.85em;
+    color: #00ff9f80;
+    line-height: 1.8;
+    max-width: 400px;
+}
+
+#instructions span {
+    color: #00ff9f;
+    font-weight: 700;
+}
+
+/* GUI Styling */
+.lil-gui {
+    --background-color: #0f0f0f;
+    --text-color: #00ff9f;
+    --title-background-color: #1a1a1a;
+    --title-text-color: #00ff9f;
+    --widget-color: #2a2a2a;
+    --hover-color: #3a3a3a;
+    --focus-color: #00ff9f40;
+    --number-color: #00ff9f;
+    --string-color: #00ff9f;
+    font-family: 'Space Mono', monospace !important;
+    font-size: 12px !important;
+    border: 2px solid #00ff9f40;
+    box-shadow: 0 0 30px rgba(0, 255, 159, 0.2);
+}
+
+.lil-gui .title {
+    font-family: 'Orbitron', sans-serif !important;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.lil-gui input[type="range"] {
+    accent-color: #00ff9f;
+}
+
+.lil-gui button {
+    background: #00ff9f20 !important;
+    border: 1px solid #00ff9f !important;
+    color: #00ff9f !important;
+    font-weight: 700 !important;
+    transition: all 0.3s ease;
+}
+
+.lil-gui button:hover {
+    background: #00ff9f40 !important;
+    box-shadow: 0 0 15px rgba(0, 255, 159, 0.4);
+}
+
+/* Velocity Indicator */
+#velocity-indicator {
+    position: fixed;
+    top: 150px;
+    left: 30px;
+    z-index: 100;
+    pointer-events: none;
+    font-size: 0.9em;
+    color: #00ff9f80;
+    font-family: 'Space Mono', monospace;
+}
+
+#velocity-bar {
+    width: 200px;
+    height: 8px;
+    background: #2a2a2a;
+    border: 1px solid #00ff9f40;
+    margin-top: 5px;
+    overflow: hidden;
+}
+
+#velocity-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ff9f, #00ffff);
+    width: 0%;
+    transition: width 0.1s ease;
+    box-shadow: 0 0 10px rgba(0, 255, 159, 0.6);
+}

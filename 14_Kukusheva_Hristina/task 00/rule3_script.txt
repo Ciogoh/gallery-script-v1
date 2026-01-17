@@ -1,0 +1,38 @@
+function setup() {
+  // Dimensioni del canvas
+  createCanvas(800, 800);
+  background(255); // sfondo bianco
+
+  // Numero di puntini
+  let numDots = 500;
+
+  for (let i = 0; i < numDots; i++) {
+    // Posizione casuale
+    let x = random(width);
+    let y = random(height);
+
+    // Shade di rosa casuale
+    // Puoi giocare con questi valori per cambiare la gamma di rosa
+    let r = 255;
+    let g = random(120, 200);
+    let b = random(180, 255);
+
+    // Dimensione casuale del puntino
+    let d = random(3, 12);
+
+    noStroke();
+    fill(r, g, b);
+    circle(x, y, d);
+  }
+
+  // Salva automaticamente l'immagine come PNG all'esecuzione
+  // Il nome file sarà "puntini_rosa.png"
+  saveCanvas('puntini_rosa', 'png');
+
+  // Se non vuoi continuare a disegnare, puoi fermare il loop
+  noLoop();
+}
+
+function draw() {
+  // Non serve nulla qui, tutto avviene in setup
+}

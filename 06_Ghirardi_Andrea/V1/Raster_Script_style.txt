@@ -1,0 +1,53 @@
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #111;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.title-header {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  color: #888;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  z-index: 100;
+}
+
+canvas {
+  display: block;
+}
+
+/* Minimal GUI styling */
+.lil-gui {
+  --background-color: #1a1a1a;
+  --text-color: #e0e0e0;
+  --title-background-color: #000;
+  --title-text-color: #fff;
+  --widget-color: #2a2a2a;
+  --hover-color: #333;
+  --focus-color: #666;
+  --number-color: #999;
+  --string-color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+}
+
+.lil-gui.root {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+}
+
+.lil-gui button {
+  font-weight: 500;
+}

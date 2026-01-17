@@ -1,0 +1,1 @@
+This folder contains all the necessary files in order to execute the animation in p5.js. The "script.animation" file is just a file text with the whole script on it. "modello.obj" and "sfondo.jpg" are the lighter model and a background for the animation.

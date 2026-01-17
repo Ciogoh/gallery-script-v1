@@ -1,0 +1,170 @@
+let particles = [];
+const NUM_PARTICLES = 150;
+
+// CONTROLLI UI
+let shapeSelector, currentShape = 'Circle', customShapeInput;
+let speedSlider, sizeSlider;
+let windXSlider, windYSlider;
+let colorPicker, particleColor, bgPicker, bgColor;
+let alphaSlider;
+
+// TOOL GIF
+let gifButton, durationSlider, durationLabel;
+let isRecording = false; // Variabile di stato per la registrazione
+
+class Particle {
+    constructor() {
+        this.reset();
+        this.y = random(height);
+    }
+
+    fall() {
+        let verticalEffort = (this.baseVelocity * speedSlider.value()) + windYSlider.value();
+        this.y += verticalEffort;
+        this.x += this.drift + windXSlider.value();
+
+        if (this.y > height + 50) { this.y = -20; this.x = random(width); } 
+        else if (this.y < -50) { this.y = height + 20; this.x = random(width); }
+
+        if (this.x > width) this.x = 0;
+        if (this.x < 0) this.x = width;
+    }
+
+    display() {
+        let size = this.baseSize * sizeSlider.value();
+        let r = particleColor.levels[0], g = particleColor.levels[1], b = particleColor.levels[2];
+        
+        push();
+        translate(this.x, this.y);
+        
+        if (currentShape === 'Line') {
+            stroke(r, g, b, alphaSlider.value());
+            strokeWeight(size / 2);
+            let lineLen = size * 5;
+            line(0, 0, 0, (this.baseVelocity + windYSlider.value()) > 0 ? lineLen : -lineLen);
+        } else {
+            noStroke();
+            fill(r, g, b, alphaSlider.value());
+            if (currentShape === 'Circle') ellipse(0, 0, size * 2);
+            else if (currentShape === 'Square') { rectMode(CENTER); rect(0, 0, size * 2, size * 2); }
+            else if (currentShape === 'Triangle') {
+                let h = size * 2;
+                triangle(0, -h/2, -h/2, h/2, h/2, h/2);
+            }
+            else if (currentShape === 'Custom (Emoji)') {
+                textAlign(CENTER, CENTER);
+                textSize(size * 4);
+                text(customShapeInput.value(), 0, 0);
+            }
+        }
+        pop();
+    }
+
+    reset() {
+        this.x = random(width);
+        this.y = random(-100, -10);
+        this.baseVelocity = random(2, 5);
+        this.baseSize = random(2, 5);    
+        this.drift = random(-0.5, 0.5);
+    }
+}
+
+function setup() {
+    createCanvas(windowWidth, windowHeight);
+    bgColor = color(0);
+    
+    // Inizializzazione controlli
+    createControls();
+    
+    for (let i = 0; i < NUM_PARTICLES; i++) {
+        particles.push(new Particle());
+    }
+}
+
+function createControls() {
+    const labelStyle = 'color: white; font-family: sans-serif; font-size: 11px; font-weight: bold;';
+    
+    // --- TOOL GIF ---
+    gifButton = createButton('🔴 REGISTRA GIF');
+    gifButton.position(width/2 - 60, 20);
+    gifButton.style('background-color', '#ff4444');
+    gifButton.style('color', 'white');
+    gifButton.style('padding', '10px');
+    gifButton.style('border', 'none');
+    gifButton.style('border-radius', '5px');
+    gifButton.style('cursor', 'pointer');
+    
+    durationLabel = createElement('span', 'Durata: 3s').style(labelStyle).position(width/2 - 40, 60);
+    durationSlider = createSlider(1, 10, 3, 1).position(width/2 - 65, 80);
+    durationSlider.input(() => durationLabel.html('Durata: ' + durationSlider.value() + 's'));
+
+    gifButton.mousePressed(() => {
+        if (typeof createLoop !== 'undefined') {
+            let d = durationSlider.value();
+            gifButton.html('Registrazione...');
+            gifButton.style('background-color', '#ffcc00');
+            
+            // Avviamo il loop solo al click
+            createLoop({ duration: d, gif: true });
+            isRecording = true;
+
+            // Il download partirà automaticamente a fine durata grazie alla libreria
+            setTimeout(() => {
+                gifButton.html('🔴 REGISTRA GIF');
+                gifButton.style('background-color', '#ff4444');
+                isRecording = false;
+            }, (d * 1000) + 1000);
+        } else {
+            alert("Libreria GIF non trovata nell'HTML!");
+        }
+    });
+
+    // --- ALTRI CONTROLLI (SINISTRA) ---
+    createElement('span', 'FORMA:').style(labelStyle).position(20, height - 170);
+    shapeSelector = createSelect().position(20, height - 150);
+    shapeSelector.option('Circle'); shapeSelector.option('Square'); shapeSelector.option('Line'); 
+    shapeSelector.option('Triangle'); shapeSelector.option('Custom (Emoji)');
+    shapeSelector.changed(() => { 
+        currentShape = shapeSelector.value(); 
+        currentShape === 'Custom (Emoji)' ? customShapeInput.show() : customShapeInput.hide(); 
+    });
+    customShapeInput = createInput('✨').position(135, height - 150).size(30).hide();
+
+    createElement('span', 'VELOCITÀ').style(labelStyle).position(20, height - 120);
+    speedSlider = createSlider(0.1, 5, 1, 0.1).position(110, height - 120);
+    
+    createElement('span', 'DIMENSIONE').style(labelStyle).position(20, height - 95);
+    sizeSlider = createSlider(0.1, 5, 1, 0.1).position(110, height - 95);
+
+    createElement('span', 'VENTO X').style(labelStyle).position(20, height - 70);
+    windXSlider = createSlider(-10, 10, 0, 0.1).position(110, height - 70);
+
+    createElement('span', 'VENTO Y').style(labelStyle).position(20, height - 45);
+    windYSlider = createSlider(-15, 15, 0, 0.1).position(110, height - 45);
+
+    // --- CONTROLLI DESTRA ---
+    const rX = width - 260;
+    createElement('span', 'COLORE PARTICELLA').style(labelStyle).position(rX, height - 95);
+    colorPicker = createColorPicker(color(255)).position(width - 65, height - 100);
+    particleColor = colorPicker.color();
+    colorPicker.input(() => particleColor = colorPicker.color());
+
+    createElement('span', 'COLORE SFONDO').style(labelStyle).position(rX, height - 65);
+    bgPicker = createColorPicker(color(0)).position(width - 65, height - 70);
+    bgPicker.input(() => bgColor = bgPicker.color());
+
+    createElement('span', 'TRASPARENZA').style(labelStyle).position(rX, height - 40);
+    alphaSlider = createSlider(0, 255, 180, 1).position(width - 145, height - 40);
+}
+
+function draw() {
+    let bgR = red(bgColor), bgG = green(bgColor), bgB = blue(bgColor);
+    background(bgR, bgG, bgB, 25); 
+
+    for (let p of particles) {
+        p.fall();
+        p.display();
+    }
+}
+
+function windowResized() { resizeCanvas(windowWidth, windowHeight); }

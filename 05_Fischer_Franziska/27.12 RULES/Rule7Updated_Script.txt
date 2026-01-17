@@ -1,0 +1,197 @@
+// ---------------- Variablen ----------------
+let squares = [];
+let intersections = [];
+let drawing = false;
+let startX, startY;
+let showTitle = true;
+let motionMode = false;
+
+let titleBlocks = [];
+let cellSize = 20;
+
+let canvas;
+
+// ---------------- Setup ----------------
+function setup() {
+  canvas = createCanvas(800, 800);
+  frameRate(60);
+  rectMode(CORNER);
+  noFill();
+}
+
+// ---------------- Draw ----------------
+function draw() {
+  background(0);
+
+  if (showTitle) {
+    drawTitle();
+    updateTitleBlocks();
+    drawTitleBlocks();
+    return;
+  }
+
+  for (let s of squares) {
+    s.update();
+    s.display();
+  }
+
+  for (let i of intersections) {
+    i.update();
+    i.display();
+  }
+
+  if (drawing) {
+    stroke(255);
+    let rectX = min(startX, mouseX);
+    let rectY = min(startY, mouseY);
+    let rectW = abs(mouseX - startX);
+    let rectH = abs(mouseY - startY);
+    rect(rectX, rectY, rectW, rectH);
+  }
+}
+
+// ---------------- Title ----------------
+function drawTitle() {
+  fill(255);
+  noStroke();
+  textAlign(LEFT, TOP);
+  textSize(14);
+  text("RULE 7", 10, 10);
+  textAlign(RIGHT, TOP);
+  text("FF", width - 10, 10);
+  textAlign(CENTER, CENTER);
+  textSize(48);
+  text("INTERSECTION DRIFT", width / 2, height / 2 - 40);
+  textSize(14);
+  text("Draw rectangles by dragging the mouse.", width / 2, height / 2 + 10);
+  text("Use M to toggle motion.", width / 2, height / 2 + 40);
+}
+
+// ---------------- Title Blocks ----------------
+function mouseMoved() {
+  if (!showTitle) return;
+  let x = floor(mouseX / cellSize) * cellSize;
+  titleBlocks.push({ x: x, y: -cellSize, settled: false, col: getRandomColor() });
+}
+
+function updateTitleBlocks() {
+  for (let b of titleBlocks) {
+    if (!b.settled) {
+      b.y += 6;
+      if (b.y + cellSize >= height) {
+        b.y = height - cellSize;
+        b.settled = true;
+      }
+      for (let other of titleBlocks) {
+        if (other !== b && other.settled && b.x === other.x && b.y + cellSize >= other.y) {
+          b.y = other.y - cellSize;
+          b.settled = true;
+        }
+      }
+    }
+  }
+}
+
+function drawTitleBlocks() {
+  noStroke();
+  for (let b of titleBlocks) {
+    fill(b.col);
+    rect(b.x, b.y, cellSize, cellSize);
+  }
+}
+
+// ---------------- Input ----------------
+function mousePressed() {
+  if (showTitle) { showTitle = false; return; }
+  drawing = true;
+  startX = mouseX;
+  startY = mouseY;
+}
+
+function mouseReleased() {
+  if (!drawing) return;
+
+  // Rechteck normalisieren, damit alle Richtungen funktionieren
+  let x = min(startX, mouseX);
+  let y = min(startY, mouseY);
+  let w = abs(mouseX - startX);
+  let h = abs(mouseY - startY);
+
+  if (w > 15 && h > 15) {
+    squares.push(new DriftSquare(x, y, w, h));
+    computeNewIntersections();
+  }
+
+  drawing = false;
+}
+
+function keyPressed() {
+  if (key === 'm' || key === 'M') motionMode = !motionMode;
+}
+
+// ---------------- Intersections ----------------
+function getRandomColor() {
+  let r = floor(random(0, 256));
+  let g = floor(random(0, 256));
+  let b = floor(random(0, 256));
+  return color(r, g, b);
+}
+
+function computeNewIntersections() {
+  intersections = []; // alte Schnittflächen löschen, damit es konsistent bleibt
+  let len = squares.length;
+  for (let i = 0; i < len - 1; i++) {
+    for (let j = i + 1; j < len; j++) {
+      let a = squares[i];
+      let b = squares[j];
+
+      let x = max(a.pos.x, b.pos.x);
+      let y = max(a.pos.y, b.pos.y);
+      let w = min(a.pos.x + a.size.x, b.pos.x + b.size.x) - x;
+      let h = min(a.pos.y + a.size.y, b.pos.y + b.size.y) - y;
+
+      if (w > 2 && h > 2) intersections.push(new Intersection(x, y, w, h, a, b));
+    }
+  }
+}
+
+// ---------------- Classes ----------------
+class DriftSquare {
+  constructor(x, y, w, h) {
+    this.pos = createVector(x, y);
+    this.size = createVector(w, h);
+    this.speed = random(1.5, 3);
+  }
+  update() {
+    if (motionMode) {
+      this.pos.x += this.speed;
+      if (this.pos.x > width) this.pos.x = -this.size.x;
+    }
+  }
+  display() {
+    stroke(255);
+    noFill();
+    rect(this.pos.x, this.pos.y, this.size.x, this.size.y);
+  }
+}
+
+class Intersection {
+  constructor(x, y, w, h, squareA, squareB) {
+    this.pos = createVector(x, y);
+    this.size = createVector(w, h);
+    this.col = getRandomColor();
+    this.squareA = squareA;
+    this.squareB = squareB;
+  }
+  update() {
+    this.pos.x = max(this.squareA.pos.x, this.squareB.pos.x);
+    this.pos.y = max(this.squareA.pos.y, this.squareB.pos.y);
+    this.size.x = min(this.squareA.pos.x + this.squareA.size.x, this.squareB.pos.x + this.squareB.size.x) - this.pos.x;
+    this.size.y = min(this.squareA.pos.y + this.squareA.size.y, this.squareB.pos.y + this.squareB.size.y) - this.pos.y;
+  }
+  display() {
+    noStroke();
+    fill(this.col);
+    rect(this.pos.x, this.pos.y, this.size.x, this.size.y);
+  }
+}

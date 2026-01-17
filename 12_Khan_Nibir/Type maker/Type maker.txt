@@ -1,0 +1,223 @@
+let bgPicker1, bgPicker2, bgPicker3, textPicker, shadowPicker, strokePicker;
+let sizeSlider, posXSlider, posYSlider, rotateSlider, shadowSlider, speedSlider;
+let pixelSlider, waveAmpSlider, strokeSlider, shearSlider, grainSlider, halftoneSlider;
+let stretchSlider, jitterSlider;
+let fontSelect, textInBar, repeatToggle, gradDirToggle;
+let pg, uiContainer; 
+let toolbarWidth = 280;
+
+function setup() {
+  pixelDensity(1); // Force 1:1 pixel mapping
+  createCanvas(windowWidth, windowHeight);
+  pg = createGraphics(windowWidth - toolbarWidth, windowHeight);
+  pg.pixelDensity(1);
+  
+  uiContainer = createDiv('');
+  uiContainer.position(0, 0);
+  uiContainer.size(toolbarWidth, height);
+  uiContainer.style('overflow-y', 'auto');
+  uiContainer.style('background-color', '#ffffff');
+  uiContainer.style('border-right', '1px solid #ddd');
+  uiContainer.style('padding-bottom', '100px');
+
+  let link = createElement('link');
+  link.attribute('rel', 'stylesheet');
+  link.attribute('href', 'https://fonts.googleapis.com/css2?family=Bungee&family=Monoton&family=Press+Start+2P&family=Righteous&family=UnifrakturMaguntia&family=Permanent+Marker&family=Fascinate+Inline&family=Orbitron:wght@900&display=swap');
+  
+  let uiX = 20;
+  let currentY = 20;
+  let sectionGap = 65;
+
+  function addUI(el, x, y) {
+    el.parent(uiContainer);
+    el.position(x, y);
+  }
+
+  // --- UI ELEMENTS ---
+  addUI(createP('<b>📝 1. CONTENT</b>'), uiX, currentY);
+  textInBar = createInput('SKIBIDI');
+  addUI(textInBar, uiX, currentY += 35);
+  textInBar.size(toolbarWidth - 70);
+  repeatToggle = createCheckbox(' REPEAT GRID', true);
+  addUI(repeatToggle, uiX, currentY += 35);
+
+  currentY += sectionGap;
+  addUI(createP('<b>✒️ 2. TYPOGRAPHY</b>'), uiX, currentY);
+  fontSelect = createSelect();
+  addUI(fontSelect, uiX, currentY += 35);
+  ['Orbitron', 'Fascinate Inline', 'Permanent Marker', 'Bungee', 'Monoton', 'Press Start 2P', 'Righteous'].forEach(f => fontSelect.option(f));
+  fontSelect.size(toolbarWidth - 60);
+  
+  addUI(createSpan('Size:'), uiX, currentY += 35);
+  sizeSlider = createSlider(10, 500, 80); addUI(sizeSlider, uiX + 80, currentY);
+  addUI(createSpan('Rotate:'), uiX, currentY += 30);
+  rotateSlider = createSlider(0, TWO_PI, 0, 0.01); addUI(rotateSlider, uiX + 80, currentY);
+  addUI(createSpan('Shear:'), uiX, currentY += 30);
+  shearSlider = createSlider(-1, 1, 0, 0.01); addUI(shearSlider, uiX + 80, currentY);
+
+  currentY += sectionGap;
+  addUI(createP('<b>🏃 3. KINETIC & WAVE</b>'), uiX, currentY);
+  addUI(createSpan('Speed:'), uiX, currentY += 35);
+  speedSlider = createSlider(0, 0.5, 0.1, 0.01); addUI(speedSlider, uiX + 80, currentY);
+  addUI(createSpan('Wave:'), uiX, currentY += 30);
+  waveAmpSlider = createSlider(0, 200, 50); addUI(waveAmpSlider, uiX + 80, currentY); 
+  addUI(createSpan('Stretch:'), uiX, currentY += 30);
+  stretchSlider = createSlider(0.5, 3.0, 1.0, 0.1); addUI(stretchSlider, uiX + 80, currentY);
+  addUI(createSpan('Jitter:'), uiX, currentY += 30);
+  jitterSlider = createSlider(0, 50, 0); addUI(jitterSlider, uiX + 80, currentY);
+
+  currentY += sectionGap;
+  addUI(createP('<b>✨ 4. ADVANCED FX</b>'), uiX, currentY);
+  addUI(createSpan('Pixel:'), uiX, currentY += 35);
+  pixelSlider = createSlider(1, 60, 1); addUI(pixelSlider, uiX + 80, currentY);
+  addUI(createSpan('Grain:'), uiX, currentY += 30);
+  grainSlider = createSlider(0, 100, 0); addUI(grainSlider, uiX + 80, currentY);
+  addUI(createSpan('Dots:'), uiX, currentY += 30);
+  halftoneSlider = createSlider(0, 20, 0); addUI(halftoneSlider, uiX + 80, currentY);
+
+  currentY += sectionGap;
+  addUI(createP('<b>🎨 5. COLORS</b>'), uiX, currentY);
+  bgPicker1 = createColorPicker('#000000'); addUI(bgPicker1, uiX, currentY += 35);
+  bgPicker2 = createColorPicker('#1a1a1a'); addUI(bgPicker2, uiX + 55, currentY);
+  bgPicker3 = createColorPicker('#000000'); addUI(bgPicker3, uiX + 110, currentY);
+  gradDirToggle = createCheckbox(' HORIZ.', false); addUI(gradDirToggle, uiX + 165, currentY);
+  
+  addUI(createSpan('Text:'), uiX, currentY += 45);
+  textPicker = createColorPicker('#ffffff'); addUI(textPicker, uiX + 80, currentY);
+  strokePicker = createColorPicker('#00ffcc'); addUI(strokePicker, uiX + 130, currentY);
+  shadowPicker = createColorPicker('#ff0055'); addUI(shadowPicker, uiX + 180, currentY);
+  
+  addUI(createSpan('Shadow:'), uiX, currentY += 40);
+  shadowSlider = createSlider(0, 50, 0); addUI(shadowSlider, uiX + 80, currentY);
+
+  currentY += sectionGap;
+  addUI(createP('<b>💾 6. EXPORT</b>'), uiX, currentY);
+  let saveBtn = createButton('SAVE PNG');
+  addUI(saveBtn, uiX, currentY += 35);
+  saveBtn.size(230, 40);
+  saveBtn.mousePressed(saveImage);
+
+  let gifBtn = createButton('🔴 EXPORT 3s GIF');
+  addUI(gifBtn, uiX, currentY += 45);
+  gifBtn.size(230, 40);
+  gifBtn.style('background', '#ff4757').style('color', 'white');
+  gifBtn.mousePressed(recordGif);
+  
+  currentY += 100;
+}
+
+function draw() {
+  background(255); 
+  
+  pg.push();
+  draw3StopGradient(bgPicker1.color(), bgPicker2.color(), bgPicker3.color(), gradDirToggle.checked());
+  if (grainSlider.value() > 0) applyGrain(grainSlider.value());
+  if (halftoneSlider.value() > 0) applyHalftone(halftoneSlider.value());
+
+  pg.textAlign(CENTER, CENTER);
+  pg.textFont(fontSelect.value());
+  pg.textSize(sizeSlider.value());
+
+  let txt = textInBar.value();
+  let spd = speedSlider.value();
+
+  if (repeatToggle.checked()) {
+    for (let y = 100; y < pg.height + 150; y += 150) {
+      for (let x = 125; x < pg.width + 250; x += 250) {
+        let wavyY = y + sin(x * 0.01 + frameCount * spd) * waveAmpSlider.value();
+        let jitX = random(-jitterSlider.value(), jitterSlider.value());
+        drawAdvText(txt, x + jitX, wavyY);
+      }
+    }
+  } else {
+    let centerY = pg.height/2 + sin(frameCount * spd) * waveAmpSlider.value();
+    drawAdvText(txt, pg.width/2, centerY);
+  }
+
+  if (pixelSlider.value() > 1) {
+    let p = pixelSlider.value();
+    pg.copy(0, 0, pg.width, pg.height, 0, 0, pg.width/p, pg.height/p);
+    pg.copy(0, 0, pg.width/p, pg.height/p, 0, 0, pg.width, pg.height);
+  }
+  pg.pop();
+
+  // Draw buffer to screen
+  image(pg, toolbarWidth, 0);
+}
+
+function recordGif() {
+  // 1. Hide UI and Resize main canvas to ONLY the artwork size
+  uiContainer.hide();
+  resizeCanvas(pg.width, pg.height);
+  
+  // 2. We override the draw loop briefly to draw the buffer at (0,0)
+  let oldDraw = draw;
+  draw = function() {
+    oldDraw();
+    image(pg, 0, 0); 
+  };
+  
+  // 3. Save the GIF
+  saveGif('no_stripe_motion', 3, {
+    units: 'seconds',
+    onComplete: () => {
+       // 4. Restore everything after recording ends
+       uiContainer.show();
+       resizeCanvas(windowWidth, windowHeight);
+       draw = oldDraw;
+    }
+  });
+}
+
+function draw3StopGradient(c1, c2, c3, horizontal) {
+  let limit = horizontal ? pg.width : pg.height;
+  for (let i = 0; i <= limit; i++) {
+    let inter = i / limit;
+    let c = inter < 0.5 ? lerpColor(color(c1), color(c2), inter * 2) : lerpColor(color(c2), color(c3), (inter - 0.5) * 2);
+    pg.stroke(c);
+    if (horizontal) pg.line(i, 0, i, pg.height); else pg.line(0, i, pg.width, i);
+  }
+}
+
+function applyGrain(amt) {
+  pg.loadPixels();
+  for (let i = 0; i < pg.pixels.length; i += 4) {
+    let n = random(-amt, amt);
+    pg.pixels[i] += n; pg.pixels[i+1] += n; pg.pixels[i+2] += n;
+  }
+  pg.updatePixels();
+}
+
+function applyHalftone(sz) {
+  pg.fill(0, 40); pg.noStroke();
+  for (let x = 0; x < pg.width; x += sz * 2) {
+    for (let y = 0; y < pg.height; y += sz * 2) {
+      pg.ellipse(x, y, sz, sz);
+    }
+  }
+}
+
+function drawAdvText(m, x, y) {
+  pg.push();
+  pg.translate(x, y);
+  pg.rotate(rotateSlider.value());
+  pg.shearX(shearSlider.value());
+  pg.scale(1.0, stretchSlider.value());
+  if (shadowSlider.value() > 0) {
+    pg.noStroke(); pg.fill(shadowPicker.color());
+    pg.text(m, 5, 5);
+  }
+  pg.fill(textPicker.color());
+  pg.stroke(strokePicker.color());
+  pg.strokeWeight(1);
+  pg.text(m, 0, 0);
+  pg.pop();
+}
+
+function saveImage() { save(pg, 'export.png'); }
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  pg = createGraphics(windowWidth - toolbarWidth, windowHeight);
+  uiContainer.size(toolbarWidth, height);
+}

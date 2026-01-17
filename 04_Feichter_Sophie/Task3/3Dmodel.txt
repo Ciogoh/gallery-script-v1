@@ -1,0 +1,380 @@
+﻿let model3D;
+let myFont; 
+let rotX = 0, rotY = 0;
+
+
+let mode = "gallery"; 
+let guitarColor, patternColor, backgroundColor, styleSelect, moveSelect, playBtn, backBtn;
+let sizeSlider; 
+let patternTexture; 
+let currentPattern = "Clean";
+let currentMove = "Showcase"; 
+
+
+let sidebar;
+let bubbleCustomize; 
+
+
+// Audio & Saiten
+let osc;
+let notes = [164.81, 196.00, 246.94, 293.66, 329.63, 392.00]; 
+let stringVibration = [0, 0, 0, 0, 0, 0];
+let stringColors = ['#FF4D4D', '#FFA500', '#FFFF66', '#66FF66', '#4D4DFF', '#B066FF'];
+
+
+let floatingNotes = [];
+let activePlayNotes = []; 
+const noteSymbols = ['♪', '♫', '♩', '♬', '♭', '♯', '∮', '♮'];
+
+
+function preload() {
+  model3D = loadModel('base-2.obj', true);
+  myFont = loadFont('https://cdnjs.cloudflare.com/ajax/libs/topcoat/0.8.0/font/SourceCodePro-Bold.otf');
+}
+
+
+function setup() {
+  if (!document.getElementById('canvas-container')) {
+    let container = createElement('div');
+    container.id('canvas-container');
+  }
+
+
+  pixelDensity(1); 
+  let canvas = createCanvas(windowWidth, windowHeight, WEBGL);
+  let gl = canvas.elt.getContext('webgl', { preserveDrawingBuffer: true });
+  canvas.parent('canvas-container');
+  
+  osc = new p5.Oscillator('sine');
+  osc.amp(0);
+  osc.start();
+
+
+  patternTexture = createGraphics(1024, 1024);
+  
+  // Initialisierung der Lobby-Noten (Hintergrundschweben)
+  for (let i = 0; i < 60; i++) {
+    // Verteilung im sichtbaren Bereich
+    floatingNotes.push(new FloatingNote(random(-width/2, width/2), random(-height/2, height/2), true));
+  }
+  
+  injectStyles(); 
+  createInterface(); 
+  toggleMode("gallery");
+}
+
+
+function draw() {
+  let bg = (mode === "gallery") ? color(255) : (backgroundColor ? backgroundColor.color() : color(240));
+  background(bg);
+
+
+  // 1. Notensystem (Lobby-Hintergrund + Spiel-Effekte)
+  drawNotesSystem();
+  
+  setupLighting();
+  renderPatternTexture();
+
+
+  // 2. 3D-Objekte (Gitarre)
+  if (mode === "play") {
+    push();
+    translate(0, 50, -500); 
+    rotateX(0.1); 
+    rotateZ(PI); 
+    scale(5.0); 
+    noStroke();
+    texture(patternTexture);
+    if (model3D) model(model3D);
+    pop();
+    drawInteractiveStrings();
+  } else {
+    renderGuitarScene();
+  }
+
+
+  // 3. 2D-OVERLAY
+  if (mode === "gallery") {
+    draw2DWelcome();
+  }
+}
+
+
+function draw2DWelcome() {
+  push();
+  resetMatrix();
+  translate(-width/2, -height/2); 
+  if (myFont) {
+    textFont(myFont);
+    textAlign(CENTER, CENTER);
+    textSize(width * 0.08);
+    fill(0);
+    noStroke();
+    text("WELCOME", width/2, height * 0.2); 
+  }
+  pop();
+}
+
+
+function renderPatternTexture() {
+  let baseCol = (mode === "gallery" || mode === "play") ? color(190, 120, 80) : (guitarColor ? guitarColor.color() : color(80));
+  let patCol = (mode === "gallery" || mode === "play") ? color(255, 150) : (patternColor ? patternColor.color() : color(255));
+  
+  patternTexture.background(baseCol); 
+  patternTexture.fill(patCol); 
+  patternTexture.stroke(patCol);
+  
+  if (currentPattern === 'Lovely Hearts') { 
+    patternTexture.noStroke(); 
+    for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) drawHeartShape(patternTexture, x * 130 + 60, y * 130 + 60, 45); 
+  } else if (currentPattern === 'Circles') { 
+    patternTexture.noFill(); 
+    patternTexture.strokeWeight(15); 
+    for (let x = 0; x < 4; x++) for (let y = 0; y < 4; y++) { 
+      let px = x * 300 + 100; let py = y * 300 + 100; 
+      patternTexture.ellipse(px, py, 200, 200); patternTexture.ellipse(px, py, 120, 120); 
+    } 
+  } else if (currentPattern === 'Polka Dots') { 
+    patternTexture.noStroke(); 
+    for (let x = 0; x < 15; x++) for (let y = 0; y < 15; y++) patternTexture.ellipse(x * 80 + 40, y * 80 + 40, 30, 30); 
+  } else if (currentPattern === 'Zebra Stripes') { 
+    patternTexture.strokeWeight(40); 
+    for (let i = -5; i < 15; i++) patternTexture.line(0, i * 100, 1024, i * 100 + 250); 
+  } else if (currentPattern === 'Stars') {
+    patternTexture.noStroke(); 
+    for (let x = 0; x < 10; x++) for (let y = 0; y < 10; y++) drawStarShape(patternTexture, x * 110 + 55, y * 110 + 55, 20, 45, 5);
+  } else if (currentPattern === 'Crosses') {
+    patternTexture.strokeWeight(15); 
+    for (let x = 0; x < 12; x++) for (let y = 0; y < 12; y++) { 
+      let px = x * 90 + 45; let py = y * 90 + 45; 
+      patternTexture.line(px-20, py-20, px+20, py+20); patternTexture.line(px+20, py-20, px-20, py+20); 
+    }
+  }
+}
+
+
+function drawNotesSystem() {
+  if (mode === "gallery") {
+    for (let note of floatingNotes) {
+      note.update();
+      note.display();
+    }
+  }
+  for (let i = activePlayNotes.length - 1; i >= 0; i--) {
+    activePlayNotes[i].update();
+    activePlayNotes[i].display();
+    if (activePlayNotes[i].isDead()) activePlayNotes.splice(i, 1);
+  }
+}
+
+
+function drawInteractiveStrings() {
+  resetMatrix();
+  translate(-width/2, -height/2);
+  let totalWidth = width * 0.3; 
+  let startX = (width - totalWidth) / 2;
+  let spacing = totalWidth / 5;
+  for (let i = 0; i < 6; i++) {
+    let x = startX + i * spacing;
+    let vib = sin(frameCount * 1.5) * stringVibration[i];
+    stroke(stringColors[i]);
+    strokeWeight(4);
+    line(x + vib, height * 0.2, x + vib, height * 0.8);
+    stringVibration[i] *= 0.92;
+  }
+}
+
+
+function mousePressed() {
+  if (mode === "play") {
+    userStartAudio();
+    let totalWidth = width * 0.3; 
+    let startX = (width - totalWidth) / 2;
+    let spacing = totalWidth / 5;
+    for (let i = 0; i < 6; i++) {
+      let x = startX + i * spacing;
+      if (mouseX > x - 15 && mouseX < x + 15) {
+        playNote(notes[i]);
+        stringVibration[i] = 12;
+        activePlayNotes.push(new FloatingNote(mouseX - width/2, mouseY - height/2, false));
+      }
+    }
+  }
+}
+
+
+function playNote(f) {
+  osc.freq(f);
+  osc.amp(0.4, 0.05);
+  osc.amp(0, 0.8);
+}
+
+
+function setupLighting() {
+  ambientLight(200);
+  pointLight(255, 255, 255, 500, 500, 500);
+}
+
+
+function renderGuitarScene() {
+  push();
+  translate(0, 50, -600); 
+  applyMovement();
+  drawGuitar();
+  pop();
+}
+
+
+function applyMovement() {
+  if (mode === "gallery") {
+    rotateY(frameCount * 0.01);
+    translate(0, sin(frameCount * 0.02) * 15, 0); 
+    return;
+  }
+  if (mode === "customize") {
+    switch (currentMove) {
+      case "Showcase": rotateY(frameCount * 0.015); break;
+      case "Float & Tilt":
+        translate(0, sin(frameCount * 0.03) * 30, 0);
+        rotateX(0.2); 
+        break;
+      case "Static": break;
+    }
+  }
+}
+
+
+function drawGuitar() {
+  if (mouseIsPressed && mode === "customize" && mouseX > 300) { 
+    rotY += (mouseX - pmouseX) * 0.01;
+    rotX += (mouseY - pmouseY) * 0.01;
+  }
+  push();
+  rotateX(rotX);
+  rotateY(rotY);
+  rotateZ(PI); 
+  noStroke(); 
+  texture(patternTexture); 
+  let currentSize = (mode === "gallery") ? 2.8 : (sizeSlider ? sizeSlider.value() : 2.8);
+  scale(currentSize); 
+  if (model3D) model(model3D);
+  pop();
+}
+
+
+class FloatingNote {
+  constructor(x, y, isLooping) {
+    this.x = x;
+    this.y = y;
+    this.z = isLooping ? random(-200, 100) : 200; // Lobby Noten schweben tiefer im Raum
+    this.isLooping = isLooping;
+    this.char = random(noteSymbols);
+    this.size = random(30, 60);
+    this.speed = random(0.5, 2);
+    this.opacity = random(100, 255);
+  }
+
+
+  update() {
+    this.y -= this.speed;
+    if (!this.isLooping) {
+        this.opacity -= 3;
+    }
+    // Lobby-Noten Loop
+    if (this.isLooping && this.y < -height/2 - 100) {
+      this.y = height/2 + 100;
+      this.x = random(-width/2, width/2);
+    }
+  }
+
+
+  display() {
+    push();
+    if(this.isLooping) {
+        // Echte 3D Positionierung vor der Lobby-Hintergrundebene
+        translate(this.x, this.y, this.z);
+    } else {
+        // Spiel-Effekt Noten im 2D Overlay
+        resetMatrix();
+        translate(this.x, this.y, 100);
+    }
+    fill(0, this.opacity); 
+    noStroke();
+    textSize(this.size);
+    textAlign(CENTER, CENTER);
+    text(this.char, 0, 0);
+    pop();
+  }
+
+
+  isDead() { return !this.isLooping && this.opacity <= 0; }
+}
+
+
+function createInterface() {
+  sidebar = createDiv('').id('sidebar');
+  let header = createDiv('CUSTOMIZING STUDIO').addClass('sidebar-header').parent(sidebar);
+  
+  createControlGroup('Texture Style', styleSelect = createSelect());
+  ['Clean', 'Lovely Hearts', 'Circles', 'Polka Dots', 'Zebra Stripes', 'Stars', 'Crosses'].forEach(s => styleSelect.option(s));
+  styleSelect.changed(() => { currentPattern = styleSelect.value(); });
+
+
+  createControlGroup('Movement', moveSelect = createSelect());
+  ['Showcase', 'Float & Tilt', 'Static'].forEach(m => moveSelect.option(m));
+  moveSelect.changed(() => { currentMove = moveSelect.value(); });
+
+
+  createControlGroup('Body Color', guitarColor = createColorPicker('#b46e32'));
+  createControlGroup('Pattern Color', patternColor = createColorPicker('#ffffff'));
+  createControlGroup('Environment Color', backgroundColor = createColorPicker('#f0f0f0'));
+  createControlGroup('Scale', sizeSlider = createSlider(0.5, 4, 3, 0.1));
+
+
+  let btnContainer = createDiv('').addClass('btn-container').parent(sidebar);
+  playBtn = createButton('ENTER PLAYROOM').parent(btnContainer).addClass('primary-btn').mousePressed(() => toggleMode("play"));
+  backBtn = createButton('BACK TO LOBBY').parent(btnContainer).addClass('secondary-btn').mousePressed(() => toggleMode("gallery"));
+
+
+  let playOverlay = createDiv('').id('playroom-ui');
+  createButton('BACK TO STUDIO').parent(playOverlay).addClass('exit-play-btn').mousePressed(() => toggleMode("customize"));
+
+
+  bubbleCustomize = createDiv('START');
+  bubbleCustomize.addClass('lobby-bubble');
+  bubbleCustomize.mousePressed(() => toggleMode("customize"));
+}
+
+
+function createControlGroup(l, c) {
+  let g = createDiv('').addClass('control-group').parent(sidebar);
+  createP(l).parent(g); c.parent(g);
+}
+
+
+function toggleMode(m) {
+  mode = m;
+  sidebar.style('display', (mode === "customize") ? 'flex' : 'none');
+  bubbleCustomize.style('display', (mode === "gallery") ? 'block' : 'none');
+  document.getElementById('playroom-ui').style.display = (mode === "play") ? 'block' : 'none';
+}
+
+
+function injectStyles() {
+  createElement('style', `
+    body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; background: #fff; }
+    #sidebar { position: fixed; left: 20px; top: 20px; bottom: 20px; width: 260px; background: rgba(255,255,255,0.9); backdrop-filter: blur(5px); border: 1px solid #ddd; border-radius: 20px; padding: 30px; z-index: 999; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+    .sidebar-header { font-size: 14px; font-weight: 800; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+    .control-group p { margin: 0; font-size: 10px; color: #888; text-transform: uppercase; }
+    .primary-btn { background: #000; color: #fff; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; }
+    .secondary-btn { background: none; border: 1px solid #ddd; color: #666; padding: 10px; cursor: pointer; border-radius: 12px; font-size: 10px; }
+    .lobby-bubble { position: fixed; left: 50%; bottom: 10%; transform: translateX(-50%); background: #000; color: #fff; padding: 10px 30px; border-radius: 50px; font-weight: 800; cursor: pointer; z-index: 5000; box-shadow: 0 10px 25px rgba(0,0,0,0.3); font-size: 16px; }
+    #playroom-ui { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: none; z-index: 3000; }
+    .exit-play-btn { background: #fff; border: 1px solid #000; padding: 15px 30px; border-radius: 50px; font-weight: bold; cursor: pointer; }
+  `);
+}
+
+
+function drawHeartShape(pg, x, y, size) { pg.push(); pg.translate(x, y); pg.beginShape(); pg.vertex(0, 0); pg.bezierVertex(-size/2, -size/2, -size, size/3, 0, size); pg.bezierVertex(size, size/3, size/2, -size/2, 0, 0); pg.endShape(CLOSE); pg.pop(); }
+function drawStarShape(pg, x, y, r1, r2, n) { let angle = TWO_PI / n; let halfAngle = angle / 2.0; pg.beginShape(); for (let a = 0; a < TWO_PI; a += angle) { pg.vertex(x + cos(a) * r2, y + sin(a) * r2); pg.vertex(x + cos(a + halfAngle) * r1, y + sin(a + halfAngle) * r1); } pg.endShape(CLOSE); }
+function windowResized() { resizeCanvas(windowWidth, windowHeight); }

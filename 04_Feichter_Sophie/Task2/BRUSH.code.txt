@@ -1,0 +1,296 @@
+﻿let penColor = '#000000';
+let bgColor = '#ffffff';
+let penSize = 15;
+let eraserSize = 30; 
+let brushType = 'NORMAL';
+let selectedFont = 'Arial';
+let customText = 'Art';
+let textMode = false;
+let eraserActive = false;
+
+
+let drawingLayer; 
+let currentMenuHeight = 140; 
+let canvasFormat = 'SCREEN'; 
+
+
+// Undo & Shape Variablen
+let undoStack = [];
+let startX, startY;
+
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  createUI();
+  updateCanvasSize();
+}
+
+
+function draw() {
+  background(40); 
+  
+  let menu = document.getElementById('main-menu');
+  if (menu) currentMenuHeight = menu.offsetHeight;
+
+
+  let cx = (windowWidth - drawingLayer.width) / 2;
+  let cy = (windowHeight - drawingLayer.height + currentMenuHeight) / 2;
+  
+  push();
+  fill(bgColor);
+  noStroke();
+  rect(cx, cy, drawingLayer.width, drawingLayer.height);
+  pop();
+
+
+  if (mouseIsPressed) {
+    let mx = mouseX - cx;
+    let my = mouseY - cy;
+    let pmx = pmouseX - cx;
+    let pmy = pmouseY - cy;
+    
+    if (mx >= 0 && mx <= drawingLayer.width && my >= 0 && my <= drawingLayer.height) {
+      handleDrawing(mx, my, pmx, pmy);
+    }
+  }
+  
+  image(drawingLayer, cx, cy);
+
+
+  // Shape Preview
+  if (mouseIsPressed && !eraserActive && !textMode && ['RECTANGLE', 'CIRCLE', 'LINE'].includes(brushType)) {
+    drawShapePreview(cx, cy);
+  }
+
+
+  if (mouseX > cx && mouseX < cx + drawingLayer.width && mouseY > cy && mouseY < cy + drawingLayer.height) {
+    drawBrushPreview();
+  }
+}
+
+
+function saveState() {
+  undoStack.push(drawingLayer.get());
+  if (undoStack.length > 20) undoStack.shift();
+}
+
+
+function undo() {
+  if (undoStack.length > 1) {
+    undoStack.pop();
+    let previousState = undoStack[undoStack.length - 1];
+    drawingLayer.clear();
+    drawingLayer.image(previousState, 0, 0);
+  }
+}
+
+
+function mousePressed() {
+  let cx = (windowWidth - drawingLayer.width) / 2;
+  let cy = (windowHeight - drawingLayer.height + currentMenuHeight) / 2;
+  startX = mouseX - cx;
+  startY = mouseY - cy;
+}
+
+
+function mouseReleased() {
+  let cx = (windowWidth - drawingLayer.width) / 2;
+  let cy = (windowHeight - drawingLayer.height + currentMenuHeight) / 2;
+  let mx = mouseX - cx;
+  let my = mouseY - cy;
+
+
+  if (mouseY > currentMenuHeight && ['RECTANGLE', 'CIRCLE', 'LINE'].includes(brushType) && !eraserActive && !textMode) {
+    drawingLayer.push();
+    drawingLayer.stroke(penColor);
+    drawingLayer.strokeWeight(penSize);
+    drawingLayer.noFill();
+    if (brushType === 'RECTANGLE') drawingLayer.rect(startX, startY, mx - startX, my - startY);
+    if (brushType === 'CIRCLE') {
+      let d = dist(startX, startY, mx, my) * 2;
+      drawingLayer.ellipse(startX, startY, d);
+    }
+    if (brushType === 'LINE') drawingLayer.line(startX, startY, mx, my);
+    drawingLayer.pop();
+  }
+  
+  if (mouseY > currentMenuHeight) saveState();
+}
+
+
+function drawShapePreview(cx, cy) {
+  push();
+  stroke(penColor);
+  strokeWeight(penSize);
+  noFill();
+  if (brushType === 'RECTANGLE') rect(startX + cx, startY + cy, mouseX - (startX + cx), mouseY - (startY + cy));
+  if (brushType === 'CIRCLE') {
+    let d = dist(startX + cx, startY + cy, mouseX, mouseY) * 2;
+    ellipse(startX + cx, startY + cy, d);
+  }
+  if (brushType === 'LINE') line(startX + cx, startY + cy, mouseX, mouseY);
+  pop();
+}
+
+
+function updateCanvasSize() {
+  let w, h;
+  let availableH = windowHeight - currentMenuHeight - 60;
+  let availableW = windowWidth - 60;
+
+
+  if (canvasFormat === 'SQUARE') {
+    let s = min(availableW, availableH);
+    w = s; h = s;
+  } else if (canvasFormat === 'PORTRAIT') {
+    h = availableH; w = h * (9/16);
+    if (w > availableW) { w = availableW; h = w * (16/9); }
+  } else if (canvasFormat === 'LANDSCAPE') {
+    w = availableW; h = w * (9/16);
+    if (h > availableH) { h = availableH; w = h * (16/9); }
+  } else {
+    w = windowWidth; h = windowHeight - currentMenuHeight;
+  }
+
+
+  drawingLayer = createGraphics(w, h);
+  drawingLayer.clear();
+  undoStack = [];
+  saveState();
+}
+
+
+function drawBrushPreview() {
+  push();
+  noFill();
+  stroke(eraserActive ? 'rgba(255,0,0,0.5)' : 'rgba(100,100,100,0.5)');
+  strokeWeight(1);
+  let currentSize = eraserActive ? eraserSize : penSize;
+  ellipse(mouseX, mouseY, currentSize, currentSize);
+  pop();
+}
+
+
+function handleDrawing(mx, my, pmx, pmy) {
+  drawingLayer.push();
+  if (eraserActive) {
+    drawingLayer.erase(); 
+    drawingLayer.strokeWeight(eraserSize);
+    drawingLayer.line(pmx, pmy, mx, my);
+    drawingLayer.noErase(); 
+  } else if (textMode) {
+    drawingLayer.fill(penColor);
+    drawingLayer.noStroke();
+    drawingLayer.textFont(selectedFont);
+    drawingLayer.textSize(penSize * 2);
+    drawingLayer.text(customText, mx, my);
+  } else if (!['RECTANGLE', 'CIRCLE', 'LINE'].includes(brushType)) {
+    drawingLayer.stroke(penColor);
+    drawingLayer.fill(penColor);
+    drawingLayer.strokeWeight(penSize);
+    
+    if (brushType === 'NORMAL') drawingLayer.line(pmx, pmy, mx, my);
+    else if (brushType === 'SPRAY') {
+      for (let i = 0; i < 20; i++) {
+        drawingLayer.strokeWeight(1);
+        drawingLayer.point(mx + random(-penSize, penSize), my + random(-penSize, penSize));
+      }
+    }
+    else if (brushType === 'CALLIGRAPHY') {
+      drawingLayer.strokeWeight(penSize / 4);
+      for (let i = 0; i < 10; i++) drawingLayer.line(pmx + i, pmy - i, mx + i, my - i);
+    }
+    else if (brushType === 'SQUARE') {
+      drawingLayer.noStroke();
+      drawingLayer.rectMode(CENTER);
+      drawingLayer.rect(mx, my, penSize, penSize);
+    }
+    else if (brushType === 'NEON') {
+      drawingLayer.strokeWeight(penSize);
+      drawingLayer.stroke(red(color(penColor)), green(color(penColor)), blue(color(penColor)), 50);
+      drawingLayer.line(pmx, pmy, mx, my);
+      drawingLayer.strokeWeight(penSize/2);
+      drawingLayer.stroke(255, 255, 255, 150);
+      drawingLayer.line(pmx, pmy, mx, my);
+    }
+    else if (brushType === 'RAINBOW') {
+      drawingLayer.colorMode(HSB);
+      drawingLayer.stroke(frameCount % 360, 80, 90);
+      drawingLayer.line(pmx, pmy, mx, my);
+      drawingLayer.colorMode(RGB);
+    }
+    else if (brushType === 'MIRROR') {
+      drawingLayer.line(pmx, pmy, mx, my);
+      drawingLayer.line(drawingLayer.width - pmx, pmy, drawingLayer.width - mx, my);
+    }
+  }
+  drawingLayer.pop();
+}
+
+
+function createUI() {
+  let menu = createDiv().id('main-menu');
+  menu.style('position', 'fixed'); menu.style('top', '0'); menu.style('width', '100%');
+  menu.style('background', '#1a1a1a'); menu.style('display', 'flex');
+  menu.style('flex-wrap', 'wrap'); menu.style('gap', '15px');
+  menu.style('padding', '15px'); menu.style('color', '#fff'); menu.style('z-index', '1000');
+  menu.style('font-family', 'sans-serif'); menu.style('align-items', 'center');
+
+
+  // Format
+  let fDiv = createDiv('<b>Format:</b> ').parent(menu);
+  let fSel = createSelect().parent(fDiv);
+  ['SCREEN', 'SQUARE', 'PORTRAIT', 'LANDSCAPE'].forEach(o => fSel.option(o));
+  fSel.changed(() => { canvasFormat = fSel.value(); updateCanvasSize(); });
+
+
+  // Eraser
+  let eDiv = createDiv('<b>Eraser:</b> ').parent(menu);
+  let eBtn = createButton('Toggle').parent(eDiv);
+  eBtn.mousePressed(() => { eraserActive = !eraserActive; eBtn.style('background', eraserActive ? '#007bff' : '#555'); });
+  createSpan(' Size: ').parent(eDiv);
+  createSlider(1, 200, eraserSize).parent(eDiv).input(e => eraserSize = e.target.value);
+
+
+  // Brush
+  let bDiv = createDiv('<b>Brush:</b> ').parent(menu);
+  createSpan('Color: ').parent(bDiv);
+  createColorPicker(penColor).parent(bDiv).input(e => { penColor = e.target.value; eraserActive = false; });
+  createSpan(' BG: ').parent(bDiv);
+  createColorPicker(bgColor).parent(bDiv).input(e => bgColor = e.target.value);
+  createSpan(' Size: ').parent(bDiv);
+  createSlider(1, 150, penSize).parent(bDiv).input(e => penSize = e.target.value);
+  createSpan(' Style: ').parent(bDiv);
+  let bSel = createSelect().parent(bDiv);
+  ['NORMAL', 'SPRAY', 'CALLIGRAPHY', 'SQUARE', 'NEON', 'RAINBOW', 'MIRROR', 'RECTANGLE', 'CIRCLE', 'LINE'].forEach(opt => bSel.option(opt));
+  bSel.changed(() => { brushType = bSel.value(); eraserActive = false; textMode = false; });
+
+
+  // Text
+  let tDiv = createDiv('<b>Text:</b> ').parent(menu);
+  let tBtn = createButton('Mode').parent(tDiv);
+  tBtn.mousePressed(() => { textMode = !textMode; eraserActive = false; tBtn.style('background', textMode ? '#007bff' : '#555'); });
+  createSpan(' Font: ').parent(tDiv);
+  let fontSel = createSelect().parent(tDiv);
+  ['Arial', 'Brush Script MT', 'Comic Sans MS', 'Impact', 'Georgia'].forEach(f => fontSel.option(f));
+  fontSel.changed(() => selectedFont = fontSel.value());
+  createInput(customText).parent(tDiv).style('width','60px').input(e => customText = e.target.value);
+
+
+  // Actions
+  let aDiv = createDiv().parent(menu).style('display','flex').style('gap','10px');
+  createButton('Undo').parent(aDiv).mousePressed(undo);
+  createButton('Save').parent(aDiv).mousePressed(() => {
+    let out = createGraphics(drawingLayer.width, drawingLayer.height);
+    out.background(bgColor);
+    out.image(drawingLayer, 0, 0);
+    save(out, 'myArt.png');
+  });
+  createButton('Clear').parent(aDiv).mousePressed(() => { drawingLayer.clear(); saveState(); });
+}
+
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  updateCanvasSize();
+}

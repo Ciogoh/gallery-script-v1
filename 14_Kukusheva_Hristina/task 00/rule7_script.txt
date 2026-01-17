@@ -1,0 +1,18 @@
+function setup() {
+  createCanvas(400, 400);
+  background(255);
+
+  // Disegna un quadrato rosso al centro
+  fill(255, 0, 0);
+  noStroke();
+  let size = 200;
+  rectMode(CENTER);
+  rect(width / 2, height / 2, size, size);
+
+  // Salva automaticamente il canvas come PNG
+  saveCanvas('quadrato_rosso', 'png');
+}
+
+function draw() {
+  // Vuoto: non serve aggiornare nulla
+}

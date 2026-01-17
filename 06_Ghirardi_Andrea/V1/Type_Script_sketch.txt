@@ -1,0 +1,845 @@
+// ============================================
+// KINETIC TYPOGRAPHY - P5.JS
+// ============================================
+
+console.log("Script loaded successfully!");
+
+// --- STATE MANAGEMENT (Grouped Variables) ---
+const state3D = {
+    shape: 'SPHERE',
+    rotation: {
+        x: 0,
+        y: 180,  // Start rotated 180 degrees so text faces camera
+        auto: 0,
+        speed: 0.05,
+        continuous: 0.003
+    },
+    sphere: {
+        size: 200  // Increased from 150 to 200
+    },
+    cylinder: {
+        radius: 150,
+        height: 300
+    },
+    fibonacci: {
+        startRadius: 0.5,
+        angleStep: 8,
+        scaleFactor: 0.15,
+        maxZHeight: 200,
+        numElements: 150,
+        minSize: 10,
+        maxSize: 40,
+        showDots: false,
+        dynamicRotation: 0,
+        paused: false  // Track pause state
+    }
+};
+
+const typography = {
+    text: "p5.js Typography",
+    size: 72,  // Increased from 32 to 72
+    leading: 1.0,
+    tracking: 0,
+    hScale: 1.0,
+    vScale: 1.0,
+    color: '#000000',
+    font: 'roboto'  // Font key from fonts object
+};
+
+const textureState = {
+    graphics: null,
+    alpha: 255,
+    repeatX: 1,
+    repeatY: 1,
+    baseResolution: 4096  // Ultra high resolution for sharp text
+};
+
+const exportSettings = {
+    width: 1920,
+    height: 1080,
+    isExporting: false
+};
+
+const canvas = {
+    baseWidth: 960,  // 16:9 aspect ratio (960x540)
+    baseHeight: 540
+};
+
+// --- CONSTANTS ---
+const PHI = 1.6180339887;
+const DETAIL = 48;  // Doubled for smoother geometry
+
+// --- FONT LOADING ---
+let customFont = null;
+
+// --- FONT LOADING ---
+let fonts = {
+    roboto: null,
+    playfair: null,
+    courier: null
+};
+
+// --- UI CONTROL GROUPS ---
+let controlGroups = {
+    typography: null,
+    texturePattern: null,
+    rotation: null,
+    sphere: null,
+    cylinder: null,
+    fibonacci: null
+};
+
+// --- Debouncing for performance ---
+let textureUpdateTimeout = null;
+
+// ============================================
+// PRELOAD & SETUP
+// ============================================
+
+function preload() {
+    // Don't load fonts here - it blocks everything
+}
+
+function loadFontsAsync() {
+    // Load fonts from local assets folder (non-blocking)
+    loadFont('assets/Roboto-Bold.ttf', 
+        (font) => { 
+            fonts.roboto = font;
+            console.log('✓ Roboto loaded');
+            if (typography.font === 'roboto') updateTextureDebounced();
+        },
+        () => console.log('✗ Roboto failed - make sure assets/Roboto-Bold.ttf exists')
+    );
+    
+    loadFont('assets/PlayfairDisplay-Bold.ttf',
+        (font) => { 
+            fonts.playfair = font;
+            console.log('✓ Playfair loaded');
+            if (typography.font === 'playfair') updateTextureDebounced();
+        },
+        () => console.log('✗ Playfair failed - make sure assets/PlayfairDisplay-Bold.ttf exists')
+    );
+    
+    loadFont('assets/CourierPrime-Bold.ttf',
+        (font) => { 
+            fonts.courier = font;
+            console.log('✓ Courier loaded');
+            if (typography.font === 'courier') updateTextureDebounced();
+        },
+        () => console.log('✗ Courier failed - make sure assets/CourierPrime-Bold.ttf exists')
+    );
+}
+
+function setup() {
+    console.log("Setup called!");
+    console.log("Container element:", select('#container'));
+    
+    // Use high pixel density for retina displays
+    pixelDensity(2);
+    
+    let cnv = createCanvas(canvas.baseWidth, canvas.baseHeight, WEBGL);
+    cnv.parent('container');
+    
+    console.log("Canvas created:", cnv);
+
+    angleMode(DEGREES);
+    smooth(); // Enable anti-aliasing
+    
+    // Disable backface culling so we can see texture on both sides
+    drawingContext.disable(drawingContext.CULL_FACE);
+    
+    // Position camera to see forms from outside
+    camera(0, 0, 500, 0, 0, 0, 0, 1, 0);
+
+    initializeTexture();
+    
+    console.log("Creating controls...");
+    createControls();
+    
+    console.log("Updating texture...");
+    updateTextureDebounced();
+    
+    console.log("Setup complete!");
+    
+    // Load fonts asynchronously after setup (non-blocking)
+    loadFontsAsync();
+}
+
+// ============================================
+// TEXTURE MANAGEMENT
+// ============================================
+
+function initializeTexture(resolution = textureState.baseResolution) {
+    // Clean up previous texture if it exists
+    if (textureState.graphics) {
+        textureState.graphics.remove();
+    }
+
+    textureState.graphics = createGraphics(resolution, resolution);
+
+    // Use loaded font object
+    if (fonts[typography.font]) {
+        textureState.graphics.textFont(fonts[typography.font]);
+    }
+    
+    textAlign(CENTER, CENTER);
+}
+
+function updateTextureDebounced() {
+    // Debouncing to avoid too many consecutive calls
+    if (textureUpdateTimeout) {
+        clearTimeout(textureUpdateTimeout);
+    }
+
+    textureUpdateTimeout = setTimeout(() => {
+        drawTextureText();
+    }, 16); // ~60fps
+}
+
+function drawTextureText() {
+    if (!textureState.graphics) return;
+
+    textureState.graphics.background(255);
+
+    let colorOpaque = color(typography.color);
+    colorOpaque.setAlpha(255);
+    textureState.graphics.fill(colorOpaque);
+
+    // Use loaded font object
+    if (fonts[typography.font]) {
+        textureState.graphics.textFont(fonts[typography.font]);
+    }
+    
+    textureState.graphics.textLeading(typography.size * typography.leading);
+    textureState.graphics.textAlign(CENTER, CENTER);
+    textureState.graphics.textSize(typography.size);
+
+    let w = textureState.graphics.width;
+    let h = textureState.graphics.height;
+    let stepX = w / textureState.repeatX;
+    let stepY = h / textureState.repeatY;
+
+    for (let j = 0; j < textureState.repeatY; j++) {
+        for (let i = 0; i < textureState.repeatX; i++) {
+            textureState.graphics.push();
+
+            let posX = i * stepX + stepX / 2;
+            let posY = j * stepY + stepY / 2;
+            textureState.graphics.translate(posX, posY);
+
+            textureState.graphics.scale(1.0 / textureState.repeatX, 1.0 / textureState.repeatY);
+            
+            // Flip horizontally to compensate for sphere scale(-1,1,1)
+            textureState.graphics.scale(-1, 1);
+            
+            textureState.graphics.scale(typography.hScale, typography.vScale);
+
+            // Tracking handling
+            if (Math.abs(typography.tracking) < 0.01) {
+                // Use original text with line breaks
+                textureState.graphics.text(typography.text, 0, 0);
+            } else {
+                // Apply tracking manually
+                applyTracking(textureState.graphics);
+            }
+
+            textureState.graphics.pop();
+        }
+    }
+}
+
+function applyTracking(pg) {
+    // Split by lines (supports \n)
+    let lines = typography.text.split('\n');
+    let lineHeight = typography.size * typography.leading;
+    let totalHeight = (lines.length - 1) * lineHeight;
+    let startY = -totalHeight / 2;
+
+    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        let line = lines[lineIdx];
+        let chars = line.split('');
+        let totalWidth = 0;
+
+        // Calculate total width
+        for (let k = 0; k < chars.length; k++) {
+            totalWidth += pg.textWidth(chars[k]);
+        }
+        totalWidth += (chars.length - 1) * typography.tracking;
+
+        let currentX = -totalWidth / 2;
+        let currentY = startY + lineIdx * lineHeight;
+
+        pg.push();
+        pg.textAlign(LEFT, CENTER);
+
+        for (let k = 0; k < chars.length; k++) {
+            let charWidth = pg.textWidth(chars[k]);
+            pg.text(chars[k], currentX, currentY);
+            currentX += charWidth + typography.tracking;
+        }
+
+        pg.pop();
+    }
+}
+
+// ============================================
+// 3D RENDERING
+// ============================================
+
+function draw() {
+    background(255); // White background
+    render3DObject();
+}
+
+function render3DObject() {
+    if (state3D.shape !== 'FIBONACCI') {
+        state3D.rotation.auto += state3D.rotation.continuous;
+    }
+
+    // NO LIGHTS - for flat rendering without shadows
+    noLights();
+
+    push();
+
+    if (state3D.shape !== 'FIBONACCI') {
+        rotateX(state3D.rotation.x);
+        rotateY(state3D.rotation.y + state3D.rotation.auto);
+    }
+
+    switch (state3D.shape) {
+        case 'SPHERE':
+            renderSphere();
+            break;
+        case 'CYLINDER':
+            renderCylinder();
+            break;
+        case 'FIBONACCI':
+            renderFibonacciSpiral();
+            break;
+    }
+
+    pop();
+}
+
+function renderSphere() {
+    push();
+    
+    // Flip only X-axis to see texture from outside
+    scale(-1, 1, 1);
+    
+    noStroke();
+    fill(255);
+    
+    texture(textureState.graphics);
+    sphere(state3D.sphere.size, DETAIL, DETAIL);
+    
+    pop();
+}
+
+function renderCylinder() {
+    push();
+    
+    rotateX(PI / 2);
+    scale(-1, 1, 1);
+    
+    noStroke();
+    fill(255);
+    
+    texture(textureState.graphics);
+    cylinder(state3D.cylinder.radius, state3D.cylinder.height, DETAIL, 1);
+    
+    pop();
+}
+
+function renderFibonacciSpiral() {
+    // Use loaded font object
+    if (fonts[typography.font]) {
+        textFont(fonts[typography.font]);
+    }
+
+    textAlign(CENTER, CENTER);
+    
+    // Use the user-selected text color
+    let textColor = color(typography.color);
+    fill(textColor);
+
+    rotateX(60);
+    
+    // Only rotate if not paused
+    if (!state3D.fibonacci.paused) {
+        state3D.fibonacci.dynamicRotation += 0.5;
+    }
+
+    let fib = state3D.fibonacci;
+
+    for (let i = 0; i < fib.numElements; i++) {
+        push();
+
+        let dynamicSize = map(i, 0, fib.numElements, fib.minSize, fib.maxSize);
+        textSize(dynamicSize);
+
+        let currentZ = map(i, 0, fib.numElements - 1, 0, fib.maxZHeight);
+
+        let theta = i * fib.angleStep;
+        let radius = fib.startRadius * pow(PHI, i * fib.scaleFactor);
+        let totalAngle = theta + fib.dynamicRotation;
+
+        let x = radius * cos(totalAngle);
+        let y = radius * sin(totalAngle);
+
+        translate(x, y, currentZ);
+        rotateZ(totalAngle + 90);
+
+        if (fib.showDots) {
+            push();
+            translate(0, 0, 1);
+            fill(0, 0, 255);
+            noStroke();
+            sphere(3);
+            pop();
+            
+            // Restore text color after drawing dots
+            fill(textColor);
+        }
+
+        // Use only first line for Fibonacci
+        let firstLine = typography.text.split('\n')[0];
+        text(firstLine, 0, 0);
+
+        pop();
+    }
+}
+
+// ============================================
+// HIGH-RES EXPORT
+// ============================================
+
+function exportHighRes() {
+    console.log("Exporting current view...");
+    
+    if (exportSettings.isExporting) {
+        return;
+    }
+    
+    exportSettings.isExporting = true;
+    showExportFeedback(true);
+    
+    // Wait for next frame to ensure rendering is complete
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            try {
+                // Get the actual canvas element
+                let canvasElement = document.querySelector('canvas');
+                
+                if (!canvasElement) {
+                    throw new Error("Canvas not found");
+                }
+                
+                // Use the native browser API to convert canvas to blob
+                // Explicitly specify PNG with quality 1.0 to preserve all data including alpha
+                canvasElement.toBlob((blob) => {
+                    if (blob) {
+                        // Create download link
+                        let url = URL.createObjectURL(blob);
+                        let link = document.createElement('a');
+                        link.download = 'kinetic_typography_export.png';
+                        link.href = url;
+                        link.click();
+                        
+                        // Cleanup
+                        setTimeout(() => URL.revokeObjectURL(url), 100);
+                        
+                        console.log("Export completed!");
+                    } else {
+                        throw new Error("Failed to create blob");
+                    }
+                    
+                    exportSettings.isExporting = false;
+                    showExportFeedback(false);
+                }, 'image/png', 1.0);
+                
+            } catch (e) {
+                console.error("Export error:", e);
+                alert("Export error: " + e.message);
+                exportSettings.isExporting = false;
+                showExportFeedback(false);
+            }
+        });
+    });
+}
+
+function showExportFeedback(show) {
+    let feedback = select('#export-feedback');
+    if (!feedback) {
+        feedback = createDiv('⏳ Exporting...');
+        feedback.id('export-feedback');
+        feedback.style('position', 'fixed');
+        feedback.style('top', '50%');
+        feedback.style('left', '50%');
+        feedback.style('transform', 'translate(-50%, -50%)');
+        feedback.style('background', 'rgba(0,0,0,0.8)');
+        feedback.style('color', 'white');
+        feedback.style('padding', '20px 40px');
+        feedback.style('border-radius', '10px');
+        feedback.style('font-size', '18px');
+        feedback.style('z-index', '9999');
+        feedback.style('display', 'none');
+    }
+
+    feedback.style('display', show ? 'block' : 'none');
+}
+
+// ============================================
+// MOUSE INTERACTION
+// ============================================
+
+function mouseDragged() {
+    if (mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height) {
+        let deltaX = mouseX - pmouseX;
+        let deltaY = mouseY - pmouseY;
+
+        state3D.rotation.y += deltaX * state3D.rotation.speed;
+        state3D.rotation.x -= deltaY * state3D.rotation.speed;
+
+        return false;
+    }
+}
+
+// ============================================
+// UI CONTROLS - COMPACT VERSION
+// ============================================
+
+function createControls() {
+    let controlsContainer = select('#controls');
+
+    // --- TEXT INPUT ---
+    createSectionHeader("Text & Font", controlsContainer);
+    
+    let textInput = createElement('textarea', typography.text);
+    textInput.parent(controlsContainer);
+    textInput.class('p5-textarea');
+    textInput.attribute('rows', '2');
+    textInput.attribute('placeholder', 'Enter text (Shift+Enter for new line)');
+    textInput.input(function() {
+        typography.text = this.value();
+        updateTextureDebounced();
+    });
+
+    let fontSelector = createSelect();
+    fontSelector.parent(controlsContainer).class('p5-select');
+    fontSelector.option('Roboto', 'roboto');
+    fontSelector.option('Playfair Display', 'playfair');
+    fontSelector.option('Courier Prime', 'courier');
+    fontSelector.changed(function() {
+        typography.font = this.value();
+        updateTextureDebounced();
+    });
+
+    // --- TYPOGRAPHY (COLLAPSIBLE) ---
+    controlGroups.typography = createDiv().id('controls-typography').parent(controlsContainer);
+    createSectionHeader("Typography", controlGroups.typography);
+
+    createCompactSlider("Size", 10, 100, typography.size, 1,
+        (v) => { typography.size = v; updateTextureDebounced(); },
+        controlGroups.typography);
+
+    createCompactSlider("Leading", 0.5, 3.0, typography.leading, 0.05,
+        (v) => { typography.leading = v; updateTextureDebounced(); },
+        controlGroups.typography);
+
+    createCompactSlider("Tracking", -20, 20, typography.tracking, 0.5,
+        (v) => { typography.tracking = v; updateTextureDebounced(); },
+        controlGroups.typography);
+
+    createCompactSlider("H-Scale", 0.1, 3.0, typography.hScale, 0.01,
+        (v) => { typography.hScale = v; updateTextureDebounced(); },
+        controlGroups.typography);
+
+    createCompactSlider("V-Scale", 0.1, 3.0, typography.vScale, 0.01,
+        (v) => { typography.vScale = v; updateTextureDebounced(); },
+        controlGroups.typography);
+
+    // --- TEXTURE PATTERN ---
+    controlGroups.texturePattern = createDiv().id('controls-texturePattern').parent(controlsContainer);
+    createSectionHeader("Texture Pattern", controlGroups.texturePattern);
+    
+    createCompactSlider("Repeat X", 1, 10, textureState.repeatX, 1,
+        (v) => { textureState.repeatX = v; updateTextureDebounced(); },
+        controlGroups.texturePattern);
+
+    createCompactSlider("Repeat Y", 1, 10, textureState.repeatY, 1,
+        (v) => { textureState.repeatY = v; updateTextureDebounced(); },
+        controlGroups.texturePattern);
+
+    // --- COLOR ---
+    createSectionHeader("Color", controlsContainer);
+    let colorInput = createColorPicker(typography.color);
+    colorInput.parent(controlsContainer);
+    colorInput.class('color-picker');
+    colorInput.input(function() {
+        typography.color = this.value();
+        updateTextureDebounced();
+    });
+
+    // --- 3D SHAPE ---
+    createSectionHeader("3D Shape", controlsContainer);
+    
+    let shapeSelector = createSelect();
+    shapeSelector.parent(controlsContainer).class('p5-select');
+    shapeSelector.option('Sphere', 'SPHERE');
+    shapeSelector.option('Cylinder', 'CYLINDER');
+    shapeSelector.option('Fibonacci Spiral', 'FIBONACCI');
+    shapeSelector.changed(function() {
+        state3D.shape = this.value();
+        updateControlVisibility();
+        updateTextureDebounced();
+    });
+
+    // --- ROTATION ---
+    controlGroups.rotation = createDiv().id('controls-rotation').parent(controlsContainer);
+    
+    createCompactSlider("Rotation Speed", 0.005, 0.2, state3D.rotation.speed, 0.005,
+        (v) => { state3D.rotation.speed = v; },
+        controlGroups.rotation);
+
+    // --- SPHERE CONTROLS ---
+    controlGroups.sphere = createDiv().id('controls-sphere').parent(controlsContainer);
+    
+    createCompactSlider("Sphere Radius", 50, 300, state3D.sphere.size, 1,
+        (v) => { state3D.sphere.size = v; },
+        controlGroups.sphere);
+
+    // --- CYLINDER CONTROLS ---
+    controlGroups.cylinder = createDiv().id('controls-cylinder').parent(controlsContainer);
+    
+    createCompactSlider("Cylinder Radius", 50, 300, state3D.cylinder.radius, 1,
+        (v) => { state3D.cylinder.radius = v; },
+        controlGroups.cylinder);
+    
+    createCompactSlider("Cylinder Height", 100, 600, state3D.cylinder.height, 1,
+        (v) => { state3D.cylinder.height = v; },
+        controlGroups.cylinder);
+
+    // --- FIBONACCI CONTROLS ---
+    controlGroups.fibonacci = createDiv().id('controls-fibonacci').parent(controlsContainer);
+    
+    createCompactSlider('Angular Distance', 4, 20, state3D.fibonacci.angleStep, 0.5,
+        (v) => { state3D.fibonacci.angleStep = v; },
+        controlGroups.fibonacci);
+
+    createCompactSlider('Spiral Opening', 0.05, 0.30, state3D.fibonacci.scaleFactor, 0.01,
+        (v) => { state3D.fibonacci.scaleFactor = v; },
+        controlGroups.fibonacci);
+
+    createCompactSlider('Z Height', 0, 400, state3D.fibonacci.maxZHeight, 1,
+        (v) => { state3D.fibonacci.maxZHeight = v; },
+        controlGroups.fibonacci);
+
+    createCompactSlider('Elements', 2, 300, state3D.fibonacci.numElements, 1,
+        (v) => { state3D.fibonacci.numElements = v; },
+        controlGroups.fibonacci);
+
+    createCompactSlider('Min Size', 1, 100, state3D.fibonacci.minSize, 1,
+        (v) => { state3D.fibonacci.minSize = v; },
+        controlGroups.fibonacci);
+
+    createCompactSlider('Max Size', 1, 100, state3D.fibonacci.maxSize, 1,
+        (v) => { state3D.fibonacci.maxSize = v; },
+        controlGroups.fibonacci);
+
+    let dotsCheckbox = createCheckbox(' Show Blue Dots', state3D.fibonacci.showDots);
+    dotsCheckbox.parent(controlGroups.fibonacci);
+    dotsCheckbox.changed(function() {
+        state3D.fibonacci.showDots = this.checked();
+    });
+    
+    // Play/Pause button for Fibonacci rotation
+    let pauseBtn = createButton('⏸ Pause Rotation');
+    pauseBtn.parent(controlGroups.fibonacci);
+    pauseBtn.class('action-btn');
+    pauseBtn.style('margin-top', '12px');
+    pauseBtn.mousePressed(function() {
+        state3D.fibonacci.paused = !state3D.fibonacci.paused;
+        if (state3D.fibonacci.paused) {
+            pauseBtn.html('▶ Play Rotation');
+        } else {
+            pauseBtn.html('⏸ Pause Rotation');
+        }
+    });
+
+    // --- ACTION BUTTONS ---
+    createSectionHeader("Actions", controlsContainer);
+    
+    let exportBtn = createButton('Export PNG');
+    exportBtn.parent(controlsContainer);
+    exportBtn.mousePressed(exportHighRes);
+    exportBtn.class('action-btn export-btn');
+
+    let resetBtn = createButton('Reset');
+    resetBtn.parent(controlsContainer);
+    resetBtn.mousePressed(resetToDefaults);
+    resetBtn.class('action-btn reset-btn');
+
+    // Initialize visibility
+    updateControlVisibility();
+}
+
+// --- Helper Functions ---
+function createSectionHeader(title, parent) {
+    let header = createDiv(title);
+    header.parent(parent);
+    header.class('section-header');
+}
+
+function createCompactSlider(label, min, max, initial, step, callback, parent) {
+    let container = createDiv();
+    container.parent(parent);
+    container.class('slider-container');
+    
+    let labelSpan = createSpan(label);
+    labelSpan.parent(container);
+    labelSpan.class('slider-label');
+    
+    let valueInput = createInput(initial.toFixed(step < 1 ? 2 : 0), 'text');
+    valueInput.parent(container);
+    valueInput.class('slider-value-input');
+    valueInput.attribute('data-min', min);
+    valueInput.attribute('data-max', max);
+    valueInput.attribute('data-step', step);
+    
+    let slider = createSlider(min, max, initial, step);
+    slider.parent(container);
+    slider.class('p5-slider');
+    
+    // Update value input when slider changes
+    slider.input(function() {
+        let val = this.value();
+        valueInput.value(val.toFixed(step < 1 ? 2 : 0));
+        callback(val);
+    });
+    
+    // Update slider when value input changes (don't constrain during typing)
+    valueInput.input(function() {
+        let val = parseFloat(this.elt.value);
+        
+        // Only update if it's a valid number
+        if (!isNaN(val)) {
+            // Constrain for slider and callback, but don't modify the input
+            let constrainedVal = constrain(val, min, max);
+            slider.value(constrainedVal);
+            callback(constrainedVal);
+        }
+    });
+    
+    // Select all text on focus for easy editing
+    valueInput.elt.addEventListener('focus', function() {
+        this.select();
+    });
+    
+    // Validate on blur
+    valueInput.elt.addEventListener('blur', function() {
+        let val = parseFloat(this.value);
+        if (isNaN(val)) {
+            val = initial;
+        }
+        val = constrain(val, min, max);
+        this.value = val.toFixed(step < 1 ? 2 : 0);
+        slider.value(val);
+        callback(val);
+    });
+    
+    // Allow Enter key to confirm
+    valueInput.elt.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            this.blur();
+        }
+    });
+    
+    return slider;
+}
+
+function updateControlVisibility() {
+    // Hide all specific groups
+    if (controlGroups.sphere) controlGroups.sphere.style('display', 'none');
+    if (controlGroups.cylinder) controlGroups.cylinder.style('display', 'none');
+    if (controlGroups.fibonacci) controlGroups.fibonacci.style('display', 'none');
+    if (controlGroups.rotation) controlGroups.rotation.style('display', 'none');
+    if (controlGroups.typography) controlGroups.typography.style('display', 'none');
+    if (controlGroups.texturePattern) controlGroups.texturePattern.style('display', 'none');
+
+    // Show relevant ones
+    if (state3D.shape === 'SPHERE') {
+        if (controlGroups.sphere) controlGroups.sphere.style('display', 'block');
+        if (controlGroups.rotation) controlGroups.rotation.style('display', 'block');
+        if (controlGroups.typography) controlGroups.typography.style('display', 'block');
+        if (controlGroups.texturePattern) controlGroups.texturePattern.style('display', 'block');
+    } else if (state3D.shape === 'CYLINDER') {
+        if (controlGroups.cylinder) controlGroups.cylinder.style('display', 'block');
+        if (controlGroups.rotation) controlGroups.rotation.style('display', 'block');
+        if (controlGroups.typography) controlGroups.typography.style('display', 'block');
+        if (controlGroups.texturePattern) controlGroups.texturePattern.style('display', 'block');
+    } else if (state3D.shape === 'FIBONACCI') {
+        if (controlGroups.fibonacci) controlGroups.fibonacci.style('display', 'block');
+        // Typography and Texture Pattern are hidden for Fibonacci (has its own controls)
+    }
+}
+
+function resetToDefaults() {
+    if (!confirm('Reset all settings to default values?')) {
+        return;
+    }
+
+    // Reset typography
+    typography.text = "p5.js Typography";
+    typography.size = 72;  // Match new default
+    typography.leading = 1.0;
+    typography.tracking = 0;
+    typography.hScale = 1.0;
+    typography.vScale = 1.0;
+    typography.color = '#000000';
+
+    // Reset texture
+    textureState.alpha = 255;
+    textureState.repeatX = 1;
+    textureState.repeatY = 1;
+
+    // Reset 3D
+    state3D.shape = 'SPHERE';
+    state3D.rotation.x = 0;
+    state3D.rotation.y = 180;  // Match initial position (text facing camera)
+    state3D.rotation.auto = 0;
+    state3D.rotation.speed = 0.05;
+    state3D.sphere.size = 200;  // Match new default
+    state3D.cylinder.radius = 150;
+    state3D.cylinder.height = 300;
+
+    // Reset Fibonacci
+    state3D.fibonacci.angleStep = 8;
+    state3D.fibonacci.scaleFactor = 0.15;
+    state3D.fibonacci.maxZHeight = 200;
+    state3D.fibonacci.numElements = 150;
+    state3D.fibonacci.minSize = 10;
+    state3D.fibonacci.maxSize = 40;
+    state3D.fibonacci.showDots = false;
+    state3D.fibonacci.paused = false;
+
+    // Recreate all controls
+    select('#controls').html('<h3>Kinetic Typography</h3>');
+    createControls();
+
+    // Redraw texture
+    updateTextureDebounced();
+
+    console.log("Settings reset to default values");
+}
+
+// ============================================
+// CLEANUP
+// ============================================
+
+// Cleanup when page is closed
+window.addEventListener('beforeunload', () => {
+    if (textureState.graphics) {
+        textureState.graphics.remove();
+    }
+});

@@ -1,0 +1,200 @@
+let img;
+let resSlider, distortSlider, effectSelect, colorPicker, bgColorPicker, colorModeSelect, paperToggle;
+let uploadBtn, saveBtn;
+let output; 
+
+function setup() {
+  let cnv = createCanvas(windowWidth - 220, windowHeight);
+  cnv.position(220, 0);
+
+  let sidebar = createDiv('');
+  sidebar.style('position', 'fixed');
+  sidebar.style('left', '0');
+  sidebar.style('top', '0');
+  sidebar.style('width', '220px');
+  sidebar.style('height', '100%');
+  sidebar.style('background', '#111');
+  sidebar.style('color', '#ccc');
+  sidebar.style('padding', '15px');
+  sidebar.style('display', 'flex');
+  sidebar.style('flex-direction', 'column');
+  sidebar.style('gap', '10px');
+  sidebar.style('font-family', 'monospace');
+  sidebar.html('<h2 style="color:white; margin-bottom:10px;">RASTER STUDIO</h2>', true);
+
+  // 1. STYLE SELECTOR
+  createSpan('STYLE').parent(sidebar);
+  effectSelect = createSelect().parent(sidebar);
+  effectSelect.option('Halftone Dots');
+  effectSelect.option('Cross-hatch');
+  effectSelect.option('Grainy Stipple');
+  effectSelect.option('Organic Lines');
+  effectSelect.option('ASCII Art');
+  effectSelect.option('Concentric Rings');
+  effectSelect.option('Triangles');
+  effectSelect.option('CMYK Offset');
+
+  createSpan('INK COLOR').parent(sidebar);
+  colorPicker = createColorPicker('#1a1a1a').parent(sidebar);
+  createSpan('PAPER COLOR').parent(sidebar);
+  bgColorPicker = createColorPicker('#f4f1ea').parent(sidebar);
+
+  colorModeSelect = createSelect().parent(sidebar);
+  colorModeSelect.option('Use Ink Color');
+  colorModeSelect.option('Use Photo Color');
+
+  // 2. SLIDERS (Weight Removed)
+  createSpan('DENSITY').parent(sidebar);
+  resSlider = createSlider(4, 60, 15, 1).parent(sidebar);
+  
+  createSpan('DISTORTION').parent(sidebar);
+  distortSlider = createSlider(0, 50, 0, 1).parent(sidebar);
+  
+  paperToggle = createCheckbox(' Apply Paper Texture', true).parent(sidebar);
+
+  // 3. ACTIONS
+  uploadBtn = createFileInput(handleFile).parent(sidebar);
+  saveBtn = createButton('DOWNLOAD PNG').parent(sidebar);
+  saveBtn.style('margin-top', '20px');
+  saveBtn.mousePressed(downloadImage);
+
+  noLoop();
+}
+
+function handleFile(file) {
+  if (file.type === 'image') {
+    img = loadImage(file.data, () => {
+      img.resize(width, 0);
+      if (img.height > height) img.resize(0, height);
+      output = createGraphics(img.width, img.height);
+      redraw(); 
+    });
+  }
+}
+
+function draw() {
+  if (!img || !output) {
+    background(30);
+    fill(255);
+    textAlign(CENTER);
+    text("Upload image to begin", width/2, height/2);
+    return;
+  }
+  renderRaster();
+  background(50);
+  image(output, 0, 0);
+}
+
+function renderRaster() {
+  let res = resSlider.value();
+  let distort = distortSlider.value();
+  let mode = effectSelect.value();
+  let usePhotoColor = colorModeSelect.value() === 'Use Photo Color';
+
+  output.background(bgColorPicker.color());
+  img.loadPixels();
+
+  for (let y = 0; y < img.height; y += res) {
+    for (let x = 0; x < img.width; x += res) {
+      let index = (floor(x) + floor(y) * img.width) * 4;
+      let r = img.pixels[index];
+      let g = img.pixels[index+1];
+      let b = img.pixels[index+2];
+      let bright = (r + g + b) / 3;
+      
+      let noiseScale = 0.01;
+      let offsetX = (noise(x * noiseScale, y * noiseScale) - 0.5) * distort;
+      let offsetY = (noise(y * noiseScale, x * noiseScale) - 0.5) * distort;
+
+      output.push();
+      output.translate(x + res/2 + offsetX, y + res/2 + offsetY);
+
+      if (usePhotoColor) {
+        output.fill(r, g, b); output.stroke(r, g, b);
+      } else {
+        output.fill(colorPicker.color()); output.stroke(colorPicker.color());
+      }
+      
+      // We now use res to set a baseline stroke weight that scales with density
+      output.strokeWeight(res * 0.15); 
+
+      // --- EFFECT STYLES ---
+      if (mode === 'Halftone Dots') {
+        let size = map(bright, 0, 255, res * 1.5, 0);
+        output.noStroke();
+        output.ellipse(0, 0, size, size);
+      } 
+      else if (mode === 'Organic Lines') {
+        let angle = noise(x * 0.01, y * 0.01) * TWO_PI;
+        output.rotate(angle * (distort/10));
+        let h = map(bright, 0, 255, res, 0);
+        output.line(0, -h/2, 0, h/2);
+      } 
+      else if (mode === 'Cross-hatch') {
+        let l = map(bright, 0, 255, res, 0);
+        output.line(-l/2, -l/2, l/2, l/2);
+        if (bright < 120) output.line(l/2, -l/2, -l/2, l/2);
+      }
+      else if (mode === 'Grainy Stipple') {
+        output.noStroke();
+        let numDots = map(bright, 0, 255, 20, 0);
+        for(let i=0; i<numDots; i++) {
+          output.ellipse(random(-res/2, res/2), random(-res/2, res/2), res * 0.05, res * 0.05);
+        }
+      }
+      else if (mode === 'ASCII Art') {
+        output.noStroke();
+        let chars = ["@", "#", "8", "&", "o", ":", "*", ".", " "];
+        let charIndex = floor(map(bright, 0, 255, 0, chars.length - 1));
+        output.textSize(res);
+        output.textAlign(CENTER, CENTER);
+        output.text(chars[charIndex], 0, 0);
+      }
+      else if (mode === 'Concentric Rings') {
+        output.noFill();
+        output.strokeWeight(map(bright, 0, 255, res/3, 0.5));
+        output.ellipse(0, 0, res * 0.8, res * 0.8);
+      }
+      else if (mode === 'Triangles') {
+        output.noStroke();
+        let s = map(bright, 0, 255, res * 1.2, 0);
+        output.rotate(noise(x * 0.02, y * 0.02) * TWO_PI * (distort/10));
+        output.triangle(-s/2, s/2, s/2, s/2, 0, -s/2);
+      }
+      else if (mode === 'CMYK Offset') {
+        output.noStroke();
+        output.blendMode(MULTIPLY);
+        let cSize = map(r, 0, 255, res * 0.8, 0);
+        let mSize = map(g, 0, 255, res * 0.8, 0);
+        let ySize = map(b, 0, 255, res * 0.8, 0);
+        
+        output.fill(0, 255, 255, 200); // Cyan
+        output.ellipse(-1, -1, cSize, cSize);
+        output.fill(255, 0, 255, 200); // Magenta
+        output.ellipse(1, -1, mSize, mSize);
+        output.fill(255, 255, 0, 200); // Yellow
+        output.ellipse(0, 1, ySize, ySize);
+      }
+
+      output.pop();
+    }
+  }
+  if (paperToggle.checked()) applyPaperTextureToBuffer();
+}
+
+function applyPaperTextureToBuffer() {
+  output.push();
+  output.blendMode(BLEND);
+  output.stroke(0, 40);
+  output.strokeWeight(1);
+  for(let i=0; i<5000; i++) {
+    output.point(random(output.width), random(output.height));
+  }
+  output.pop();
+}
+
+function downloadImage() {
+  if (output) save(output, 'raster_artwork.png');
+}
+
+function mouseReleased() { redraw(); }

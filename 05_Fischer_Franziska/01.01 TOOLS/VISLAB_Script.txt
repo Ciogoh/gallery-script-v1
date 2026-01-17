@@ -1,0 +1,93 @@
+/**
+ * VIS LAB - MASTER SUBMISSION SYSTEM
+ * Framework: p5.js
+ * Author: Franziska Fischer
+ * Revised: Link Version
+ */
+
+let verificationCode;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  // Generiert einen einzigartigen Code basierend auf der Zeit
+  verificationCode = btoa("VIS_LAB_FINAL_VERIFIED_" + Date.now());
+}
+
+function draw() {
+  background(0);
+  fill(255);
+  noStroke();
+  textAlign(CENTER, CENTER);
+  textFont('sans-serif');
+
+  let centerX = width / 2;
+  let centerY = height / 2;
+
+  // --- PULSIERENDER PFEIL ---
+  let pulse = sin(frameCount * 0.07) * 15; 
+  let arrowYBase = centerY - 280;
+  
+  push();
+  stroke(255); strokeWeight(4); noFill();
+  strokeCap(ROUND); strokeJoin(ROUND);
+  let currentY = arrowYBase + pulse;
+  beginShape();
+  vertex(centerX - 24, currentY - 20);
+  vertex(centerX, currentY);
+  vertex(centerX + 24, currentY - 20);
+  endShape();
+  line(centerX, currentY, centerX, currentY - 60); 
+  pop();
+
+  // LOGO
+  noStroke();
+  fill(255); textStyle(BOLD); textSize(42);
+  text("VIS LAB", centerX, centerY - 140);
+
+  // INFO TEXT
+  textStyle(NORMAL); textSize(16);
+  text("OPTION A: Download the 'VISLAB.zip' folder directly from MS Teams.", centerX, centerY - 45);
+  
+  textStyle(BOLD);
+  text("OPTION B: Use the direct link below to launch the project.", centerX, centerY - 20); 
+  
+  textSize(15); fill(180);
+  text("Recommended for quick access.", centerX, centerY + 15);
+
+  // BUTTON
+  let btnW = 320;
+  let btnH = 55;
+  let btnX = centerX - btnW / 2;
+  let btnY = centerY + 120;
+  
+  let isHover = (mouseX > btnX && mouseX < btnX + btnW && mouseY > btnY && mouseY < btnY + btnH);
+  
+  if (isHover) { fill(255); cursor(HAND); } else { fill(40); cursor(ARROW); }
+  
+  rectMode(CENTER);
+  rect(centerX, btnY + btnH / 2, btnW, btnH, 5);
+  
+  fill(isHover ? 0 : 255);
+  textStyle(BOLD); textSize(14);
+  text("OPEN VISUAL LABORATORY", centerX, btnY + btnH / 2);
+
+  // FOOTER
+  textAlign(CENTER, BOTTOM); textSize(10); fill(45);
+  text("STAMP_ID: " + verificationCode, centerX, height - 30);
+}
+
+function mousePressed() {
+  let centerX = width / 2;
+  let centerY = height / 2;
+  let btnW = 320; 
+  let btnH = 55;
+  let btnX = centerX - btnW / 2; 
+  let btnY = centerY + 120;
+
+  // Wenn auf den Button geklickt wird -> Link öffnen
+  if (mouseX > btnX && mouseX < btnX + btnW && mouseY > btnY && mouseY < btnY + btnH) {
+    window.open("https://visuallaboratory.netlify.app", "_blank");
+  }
+}
+
+function windowResized() { resizeCanvas(windowWidth, windowHeight); }

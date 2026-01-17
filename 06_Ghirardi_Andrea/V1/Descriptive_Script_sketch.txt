@@ -1,0 +1,613 @@
+// ============================================
+// UNSTABLE GEOMETRY V2.0 - Singer 128 Digital Decay
+// Progetto di Geometria Descrittiva
+// ============================================
+
+// VARIABILI GLOBALI
+let myModel; // Modello 3D caricato
+let modelLoaded = false; // Flag per verificare se il modello è stato caricato
+let particles = []; // Array per il sistema di particelle
+
+// Variabili per l'effetto glitch
+let intensity = 0; // Intensità degli effetti (0-1)
+
+// Variabili per le luci dinamiche
+let lightPos1 = { x: 0, y: 0, z: 0 };
+let lightPos2 = { x: 0, y: 0, z: 0 };
+
+// Info overlay HTML element
+let infoDiv;
+
+// Animation control
+let isAnimating = true;
+
+// GIF recording
+let gifRecorder;
+let isRecording = false;
+
+// GUI Controls Object
+let params = {
+  // Particles
+  numParticles: 400,
+  particleSpeed: 1.0,
+  particleSize: 2.0,
+  
+  // Model
+  modelScale: 10.0,
+  rotationSpeed: 1.0,
+  
+  // Glitch Effects
+  jitterIntensity: 10.0,
+  scaleDistortion: 0.3,
+  rotationChaos: 0.1,
+  
+  // Colors
+  bgColor: '#05050f',
+  wireframeMode: 'Reactive', // 'Reactive', 'Cyan', 'Magenta', 'White'
+  
+  // Lights
+  cyanLightIntensity: 255,
+  magentaLightIntensity: 255,
+  lightFollowMouse: true,
+  
+  // System
+  showInfo: true,
+  showParticles: true,
+  
+  // Actions
+  regenerateParticles: function() {
+    particles = [];
+    for (let i = 0; i < params.numParticles; i++) {
+      particles.push(new Particle());
+    }
+    console.log('✓ Particles regenerated: ' + params.numParticles);
+  },
+  
+  // Animation control
+  toggleAnimation: function() {
+    isAnimating = !isAnimating;
+    if (isAnimating) {
+      loop();
+      console.log('▶️ Animation resumed');
+    } else {
+      noLoop();
+      console.log('⏸️ Animation paused');
+    }
+  },
+  
+  // Export functions
+  saveFrame: function() {
+    let timestamp = year() + '' + nf(month(), 2) + '' + nf(day(), 2) + '_' + 
+                    nf(hour(), 2) + nf(minute(), 2) + nf(second(), 2);
+    saveCanvas('unstable_geometry_' + timestamp, 'png');
+    console.log('✓ Frame saved as PNG');
+  },
+  
+  recordGIF: function() {
+    if (!isRecording) {
+      // Start recording using p5.js built-in saveGif
+      isRecording = true;
+      console.log('🔴 Recording GIF... (' + params.gifDuration + ' seconds at ' + params.gifFPS + ' fps)');
+      
+      // Use p5.js saveGif function
+      let totalFrames = params.gifDuration * params.gifFPS;
+      saveGif('unstable_geometry', params.gifDuration, {
+        delay: 0,
+        units: 'seconds'
+      });
+      
+      // Set timeout to reset recording flag
+      setTimeout(() => {
+        isRecording = false;
+        console.log('✓ GIF saved successfully!');
+      }, params.gifDuration * 1000 + 500);
+    }
+  },
+  
+  // GIF settings
+  gifDuration: 3,
+  gifFPS: 30
+};
+
+// ============================================
+// PRELOAD - CARICAMENTO DEL MODELLO 3D
+// ============================================
+
+function preload() {
+  // ⚠️ IMPORTANTE: Cambia questo percorso con il path del tuo file .obj
+  // Nell'editor p5.js:
+  // 1. Clicca sulla freccia (>) in alto a sinistra
+  // 2. Carica il file .obj tramite "Upload file"
+  // 3. Il nome del file apparirà nella lista (es. 'singer128.obj')
+  // 4. Usa quel nome esatto qui sotto
+  
+  try {
+    myModel = loadModel('sculpt.obj', 
+      () => {
+        modelLoaded = true;
+        console.log('✓ Modello caricato con successo');
+      },
+      (err) => {
+        console.log('✗ Modello non trovato, verrà usato un placeholder');
+        modelLoaded = false;
+      }
+    );
+  } catch (e) {
+    console.log('✗ Errore nel caricamento, verrà usato un placeholder');
+    modelLoaded = false;
+  }
+}
+
+// ============================================
+// SETUP
+// ============================================
+
+function setup() {
+  createCanvas(windowWidth, windowHeight, WEBGL);
+  
+  // Inizializza il sistema di particelle
+  for (let i = 0; i < params.numParticles; i++) {
+    particles.push(new Particle());
+  }
+  
+  // Impostazioni di rendering
+  strokeWeight(0.8);
+  noFill(); // NO FILL - Solo wireframe/point cloud
+  
+  // Crea il div per le informazioni (HTML overlay invece di WEBGL text)
+  infoDiv = createDiv();
+  infoDiv.position(20, 20);
+  infoDiv.style('color', '#00ffff');
+  infoDiv.style('font-family', 'monospace');
+  infoDiv.style('font-size', '14px');
+  infoDiv.style('text-shadow', '0 0 10px rgba(0, 255, 255, 0.5)');
+  infoDiv.style('pointer-events', 'none');
+  infoDiv.style('z-index', '100');
+  infoDiv.style('line-height', '1.5');
+  
+  // Crea la GUI
+  createGUI();
+  
+  console.log('✓ Setup completato');
+  console.log('📊 Usa la GUI (pannello a destra) per modificare i parametri');
+}
+
+// ============================================
+// DRAW - LOOP PRINCIPALE
+// ============================================
+
+function draw() {
+  // Background from color picker
+  let bg = color(params.bgColor);
+  background(red(bg), green(bg), blue(bg));
+  
+  // Calcola l'intensità basata sulla distanza del mouse dal centro
+  let centerX = 0;
+  let centerY = 0;
+  let mouseXCentered = mouseX - width / 2;
+  let mouseYCentered = mouseY - height / 2;
+  let distance = dist(mouseXCentered, mouseYCentered, centerX, centerY);
+  let maxDistance = dist(0, 0, width / 2, height / 2);
+  
+  // Più il mouse è vicino al centro, più l'intensità è alta (invertito)
+  intensity = map(distance, 0, maxDistance, 1, 0);
+  intensity = constrain(intensity, 0, 1);
+  
+  // ============================================
+  // SISTEMA DI LUCI DINAMICHE
+  // ============================================
+  
+  // Luce ambientale debole
+  ambientLight(10, 10, 20);
+  
+  if (params.lightFollowMouse) {
+    // Luce ciano che segue parzialmente il mouse
+    lightPos1.x = lerp(lightPos1.x, mouseXCentered * 0.8, 0.05);
+    lightPos1.y = lerp(lightPos1.y, mouseYCentered * 0.8, 0.05);
+    lightPos1.z = 300;
+    pointLight(0, params.cyanLightIntensity, params.cyanLightIntensity, 
+               lightPos1.x, lightPos1.y, lightPos1.z);
+    
+    // Luce magenta contrapposta
+    lightPos2.x = lerp(lightPos2.x, -mouseXCentered * 0.6, 0.03);
+    lightPos2.y = lerp(lightPos2.y, -mouseYCentered * 0.6, 0.03);
+    lightPos2.z = 200;
+    pointLight(params.magentaLightIntensity, 0, params.magentaLightIntensity, 
+               lightPos2.x, lightPos2.y, lightPos2.z);
+  } else {
+    // Luci statiche
+    pointLight(0, params.cyanLightIntensity, params.cyanLightIntensity, 200, -200, 300);
+    pointLight(params.magentaLightIntensity, 0, params.magentaLightIntensity, -200, 200, 200);
+  }
+  
+  // ============================================
+  // RENDERING DEL MODELLO 3D CON EFFETTI GLITCH
+  // ============================================
+  
+  push();
+  
+  // Rotazione di base
+  rotateX(frameCount * 0.003 * params.rotationSpeed);
+  rotateY(frameCount * 0.005 * params.rotationSpeed);
+  
+  // Effetto jitter sulla posizione (vibrazione)
+  let jitterX = random(-params.jitterIntensity, params.jitterIntensity) * intensity * intensity;
+  let jitterY = random(-params.jitterIntensity, params.jitterIntensity) * intensity * intensity;
+  let jitterZ = random(-params.jitterIntensity * 0.5, params.jitterIntensity * 0.5) * intensity * intensity;
+  translate(jitterX, jitterY, jitterZ);
+  
+  // Rotazioni nervose basate sull'intensità
+  let nervousRotX = sin(frameCount * 0.1) * intensity * PI * params.rotationChaos;
+  let nervousRotY = cos(frameCount * 0.15) * intensity * PI * params.rotationChaos;
+  let nervousRotZ = sin(frameCount * 0.08) * intensity * PI * params.rotationChaos;
+  rotateX(nervousRotX);
+  rotateY(nervousRotY);
+  rotateZ(nervousRotZ);
+  
+  // Scala asimmetrica (distorsione)
+  let scaleX = 1 + sin(frameCount * 0.05) * intensity * params.scaleDistortion;
+  let scaleY = 1 + cos(frameCount * 0.07) * intensity * params.scaleDistortion;
+  let scaleZ = 1 + sin(frameCount * 0.06) * intensity * params.scaleDistortion * 0.8;
+  scale(scaleX, scaleY, scaleZ);
+  
+  // Colore del wireframe
+  applyWireframeColor();
+  
+  // Renderizza il modello o il placeholder
+  if (modelLoaded && myModel) {
+    // Modalità wireframe per geometria descrittiva
+    scale(params.modelScale);
+    model(myModel);
+  } else {
+    // Placeholder: Torus complesso
+    strokeWeight(1);
+    rotateX(PI / 4);
+    for (let i = 0; i < 3; i++) {
+      rotateY(PI / 3);
+      torus(80, 30, 24, 16);
+    }
+  }
+  
+  pop();
+  
+  // ============================================
+  // SISTEMA DI PARTICELLE ATMOSFERICHE
+  // ============================================
+  
+  if (params.showParticles) {
+    for (let p of particles) {
+      p.update(intensity);
+      p.display();
+    }
+  }
+  
+  // ============================================
+  // INFO TEXT (top-left corner)
+  // ============================================
+  
+  displayInfo();
+}
+
+// ============================================
+// FUNZIONE PER APPLICARE IL COLORE WIREFRAME
+// ============================================
+
+function applyWireframeColor() {
+  switch(params.wireframeMode) {
+    case 'Reactive':
+      let r = lerp(100, 255, intensity);
+      let g = lerp(200, 50, intensity);
+      let b = lerp(255, 200, intensity);
+      stroke(r, g, b, 200);
+      break;
+    case 'Cyan':
+      stroke(0, 255, 255, 200);
+      break;
+    case 'Magenta':
+      stroke(255, 0, 255, 200);
+      break;
+    case 'White':
+      stroke(255, 255, 255, 200);
+      break;
+  }
+}
+
+// ============================================
+// DISPLAY INFO (using HTML div instead of WEBGL text)
+// ============================================
+
+function displayInfo() {
+  if (params.showInfo) {
+    let info = 'UNSTABLE GEOMETRY V2.0<br>';
+    info += 'Singer 128 - Digital Decay<br>';
+    info += 'Move mouse to destabilize<br>';
+    info += 'Intensity: ' + (intensity * 100).toFixed(0) + '%<br>';
+    info += 'FPS: ' + frameRate().toFixed(0) + '<br>';
+    
+    // Show recording status
+    if (isRecording) {
+      info += '<br><span style="color: #ff0000; font-weight: bold;">🔴 RECORDING GIF...</span><br>';
+    }
+    
+    info += '<br><span style="color: #ff00ff;">SHORTCUTS:</span><br>';
+    info += 'SPACE = Play/Pause<br>';
+    info += 'S = Save Frame<br>';
+    info += 'R = Record GIF<br>';
+    infoDiv.html(info);
+    infoDiv.show();
+  } else {
+    infoDiv.hide();
+  }
+}
+
+// ============================================
+// CLASSE PARTICLE - Sistema particellare
+// ============================================
+
+class Particle {
+  constructor() {
+    // Posizione orbitale sferica
+    this.theta = random(TWO_PI);
+    this.phi = random(PI);
+    this.radius = random(200, 400);
+    
+    // Velocità angolare
+    this.speedTheta = random(-0.01, 0.01);
+    this.speedPhi = random(-0.005, 0.005);
+    
+    // Proprietà visive
+    this.baseSize = random(1, 3) * params.particleSize;
+    this.baseColor = color(random(100, 255), random(100, 255), random(200, 255));
+    this.glitchColor = color(255, random(100, 255), random(100, 255));
+  }
+  
+  update(intensity) {
+    // Accelera in base all'intensità e al moltiplicatore di velocità
+    let speedMultiplier = (1 + intensity * 3) * params.particleSpeed;
+    this.theta += this.speedTheta * speedMultiplier;
+    this.phi += this.speedPhi * speedMultiplier;
+    
+    // Pulsa il raggio con l'intensità
+    this.radiusMod = this.radius + sin(frameCount * 0.02 + this.theta) * 50 * intensity;
+    
+    // Aggiorna la dimensione in base al parametro globale
+    this.size = this.baseSize * params.particleSize;
+  }
+  
+  display() {
+    push();
+    
+    // Converti coordinate sferiche in cartesiane
+    let x = this.radiusMod * sin(this.phi) * cos(this.theta);
+    let y = this.radiusMod * sin(this.phi) * sin(this.theta);
+    let z = this.radiusMod * cos(this.phi);
+    
+    translate(x, y, z);
+    
+    // Colore che cambia con l'intensità
+    let c = lerpColor(this.baseColor, this.glitchColor, intensity);
+    stroke(c);
+    strokeWeight(this.size);
+    point(0, 0, 0);
+    
+    pop();
+  }
+}
+
+// ============================================
+// RESPONSIVE RESIZE
+// ============================================
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+
+// ============================================
+// KEYBOARD SHORTCUTS
+// ============================================
+
+function keyPressed() {
+  // SPACE = Toggle animation
+  if (key === ' ') {
+    params.toggleAnimation();
+    return false; // Prevent default
+  }
+  
+  // S = Save frame
+  if (key === 's' || key === 'S') {
+    params.saveFrame();
+    return false;
+  }
+  
+  // R = Record GIF
+  if (key === 'r' || key === 'R') {
+    params.recordGIF();
+    return false;
+  }
+}
+
+// ============================================
+// CREA LA GUI (dat.GUI)
+// ============================================
+
+function createGUI() {
+  // Crea la GUI usando p5.js DOM invece di dat.GUI
+  // per evitare dipendenze esterne
+  
+  let gui = createDiv();
+  gui.position(windowWidth - 320, 10);
+  gui.style('width', '300px');
+  gui.style('background-color', 'rgba(0, 0, 0, 0.8)');
+  gui.style('padding', '15px');
+  gui.style('border-radius', '8px');
+  gui.style('color', '#00ffff');
+  gui.style('font-family', 'monospace');
+  gui.style('font-size', '12px');
+  gui.style('max-height', '90vh');
+  gui.style('overflow-y', 'auto');
+  
+  // Titolo
+  let title = createDiv('⚙️ CONTROLS PANEL');
+  title.style('font-size', '16px');
+  title.style('margin-bottom', '15px');
+  title.style('color', '#00ffff');
+  title.style('font-weight', 'bold');
+  title.parent(gui);
+  
+  // Sezione Particelle
+  addSection(gui, '🌌 PARTICLES');
+  addSlider(gui, 'Number', 'numParticles', 100, 800, 10);
+  addSlider(gui, 'Speed', 'particleSpeed', 0.1, 3.0, 0.1);
+  addSlider(gui, 'Size', 'particleSize', 0.5, 5.0, 0.1);
+  addButton(gui, '🔄 Regenerate Particles', params.regenerateParticles);
+  
+  // Sezione Modello
+  addSection(gui, '🎨 MODEL');
+  addSlider(gui, 'Scale', 'modelScale', 0.5, 50.0, 0.5);
+  addSlider(gui, 'Rotation Speed', 'rotationSpeed', 0.0, 3.0, 0.1);
+  
+  // Sezione Effetti Glitch
+  addSection(gui, '⚡ GLITCH');
+  addSlider(gui, 'Jitter', 'jitterIntensity', 0, 50, 1);
+  addSlider(gui, 'Scale Distortion', 'scaleDistortion', 0, 1.0, 0.01);
+  addSlider(gui, 'Rotation Chaos', 'rotationChaos', 0, 0.5, 0.01);
+  
+  // Sezione Colori
+  addSection(gui, '🎨 COLORS');
+  addColorPicker(gui, 'Background', 'bgColor');
+  addDropdown(gui, 'Wireframe', 'wireframeMode', ['Reactive', 'Cyan', 'Magenta', 'White']);
+  
+  // Sezione Luci
+  addSection(gui, '💡 LIGHTS');
+  addSlider(gui, 'Cyan Intensity', 'cyanLightIntensity', 0, 255, 5);
+  addSlider(gui, 'Magenta Intensity', 'magentaLightIntensity', 0, 255, 5);
+  addCheckbox(gui, 'Follow Mouse', 'lightFollowMouse');
+  
+  // Sezione Sistema
+  addSection(gui, '⚙️ SYSTEM');
+  addCheckbox(gui, 'Show Info', 'showInfo');
+  addCheckbox(gui, 'Show Particles', 'showParticles');
+  
+  // Sezione Export & Control
+  addSection(gui, '📹 EXPORT & CONTROL');
+  addButton(gui, '⏯️ Play/Pause Animation', params.toggleAnimation);
+  addButton(gui, '📸 Save Frame (PNG)', params.saveFrame);
+  addSlider(gui, 'GIF Duration (sec)', 'gifDuration', 1, 10, 1);
+  addButton(gui, '🎬 Record GIF', params.recordGIF);
+}
+
+// ============================================
+// FUNZIONI HELPER PER LA GUI
+// ============================================
+
+function addSection(parent, label) {
+  let section = createDiv(label);
+  section.style('margin-top', '15px');
+  section.style('margin-bottom', '8px');
+  section.style('font-weight', 'bold');
+  section.style('color', '#ff00ff');
+  section.parent(parent);
+}
+
+function addSlider(parent, label, param, min, max, step) {
+  let container = createDiv();
+  container.style('margin-bottom', '10px');
+  container.parent(parent);
+  
+  let labelDiv = createDiv(label + ': <span id="' + param + '_value">' + params[param] + '</span>');
+  labelDiv.style('margin-bottom', '3px');
+  labelDiv.style('color', '#ffffff');
+  labelDiv.parent(container);
+  
+  let slider = createSlider(min, max, params[param], step);
+  slider.style('width', '100%');
+  slider.parent(container);
+  
+  slider.input(() => {
+    params[param] = slider.value();
+    select('#' + param + '_value').html(slider.value());
+  });
+}
+
+function addCheckbox(parent, label, param) {
+  let container = createDiv();
+  container.style('margin-bottom', '8px');
+  container.parent(parent);
+  
+  let checkbox = createCheckbox(label, params[param]);
+  checkbox.style('color', '#ffffff');
+  checkbox.parent(container);
+  
+  checkbox.changed(() => {
+    params[param] = checkbox.checked();
+  });
+}
+
+function addButton(parent, label, callback) {
+  let button = createButton(label);
+  button.style('width', '100%');
+  button.style('padding', '8px');
+  button.style('margin-bottom', '10px');
+  button.style('background-color', '#ff00ff');
+  button.style('color', '#000000');
+  button.style('border', 'none');
+  button.style('border-radius', '4px');
+  button.style('cursor', 'pointer');
+  button.style('font-weight', 'bold');
+  button.parent(parent);
+  
+  button.mousePressed(callback);
+}
+
+function addColorPicker(parent, label, param) {
+  let container = createDiv();
+  container.style('margin-bottom', '10px');
+  container.parent(parent);
+  
+  let labelDiv = createDiv(label + ':');
+  labelDiv.style('margin-bottom', '5px');
+  labelDiv.style('color', '#ffffff');
+  labelDiv.parent(container);
+  
+  // Create color input
+  let colorInput = createColorPicker(params[param]);
+  colorInput.style('width', '100%');
+  colorInput.style('height', '40px');
+  colorInput.style('border', '2px solid #00ffff');
+  colorInput.style('border-radius', '4px');
+  colorInput.style('cursor', 'pointer');
+  colorInput.parent(container);
+  
+  colorInput.input(() => {
+    params[param] = colorInput.value();
+  });
+}
+
+function addDropdown(parent, label, param, options) {
+  let container = createDiv();
+  container.style('margin-bottom', '10px');
+  container.parent(parent);
+  
+  let labelDiv = createDiv(label + ':');
+  labelDiv.style('margin-bottom', '3px');
+  labelDiv.style('color', '#ffffff');
+  labelDiv.parent(container);
+  
+  let dropdown = createSelect();
+  dropdown.style('width', '100%');
+  dropdown.style('padding', '5px');
+  dropdown.style('background-color', '#1a1a1a');
+  dropdown.style('color', '#00ffff');
+  dropdown.style('border', '1px solid #00ffff');
+  dropdown.style('border-radius', '4px');
+  dropdown.parent(container);
+  
+  for (let option of options) {
+    dropdown.option(option);
+  }
+  dropdown.selected(params[param]);
+  
+  dropdown.changed(() => {
+    params[param] = dropdown.value();
+  });
+}
