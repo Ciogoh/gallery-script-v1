@@ -5,385 +5,218 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>P5.js Sketches Gallery</title>
     <style>
-        :root {
-            --bg-color: #121212;
-            --card-bg: #1e1e1e;
-            --text-color: #e0e0e0;
-            --accent-color: #bb86fc;
-            --hover-color: #3700b3;
-            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: var(--font-family);
-            margin: 0;
-            padding: 20px;
-            line-height: 1.6;
-        }
-
-        header {
-            text-align: center;
-            padding: 40px 0;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #333;
-        }
-
-        h1 {
-            font-size: 2.5rem;
-            margin: 0;
-            color: var(--accent-color);
-        }
-        
-        h2 {
-            border-left: 5px solid var(--accent-color);
-            padding-left: 15px;
-            margin-top: 40px;
-            margin-bottom: 20px;
-            font-weight: 300;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .student-section {
-            margin-bottom: 60px;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            border-radius: 8px;
-            padding: 20px;
-            transition: transform 0.2s, box-shadow 0.2s;
-            text-decoration: none;
-            color: inherit;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 150px;
-            border: 1px solid #333;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            border-color: var(--accent-color);
-            background-color: #252525;
-        }
-
-        .card-title {
-            text-align: center;
-            font-weight: bold;
-            font-size: 1.1rem;
-        }
-        
-        .card-icon {
-            font-size: 2rem;
-            margin-bottom: 15px;
-            color: #777;
-        }
-        
-        .card:hover .card-icon {
-            color: var(--accent-color);
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 80px;
-            color: #777;
-            font-size: 0.9rem;
-        }
+        :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --accent: #bb86fc; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 20px; }
+        header { text-align: center; padding: 40px 0; border-bottom: 1px solid #333; }
+        h1 { color: var(--accent); margin: 0; }
+        h2 { border-left: 4px solid var(--accent); padding-left: 15px; margin-top: 40px; text-transform: uppercase; letter-spacing: 1px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+        .card { background: var(--card); padding: 20px; border-radius: 8px; text-decoration: none; color: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px; border: 1px solid #333; transition: 0.2s; }
+        .card:hover { transform: translateY(-4px); border-color: var(--accent); background: #252525; }
+        .icon { font-size: 1.5rem; margin-bottom: 10px; }
+        .title { text-align: center; font-weight: bold; font-size: 0.9rem; }
+        footer { text-align: center; margin-top: 60px; color: #666; font-size: 0.8rem; }
     </style>
 </head>
 <body>
-
 <header>
     <h1>Student Sketches Gallery</h1>
-    <p>Collection of P5.js Projects</p>
+    <p>Auto-updated Index</p>
 </header>
-
 <main>
-
-    <section class="student-section">
-        <h2>01 Emam LailaKarimMohamedAbdelmeguid</h2>
+    <section>
+        <h2>01 Emam Laila</h2>
         <div class="grid">
-
-            <a href="01_Emam_LailaKarimMohamedAbdelmeguid/brush/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">brush</div>
+            <a href="students/01_Emam_Laila/brush/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">brush</span>
             </a>
-
-            <a href="01_Emam_LailaKarimMohamedAbdelmeguid/gif/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">gif</div>
+            <a href="students/01_Emam_Laila/gif/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">gif</span>
             </a>
-
-            <a href="01_Emam_LailaKarimMohamedAbdelmeguid/raster/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">raster</div>
+            <a href="students/01_Emam_Laila/raster/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">raster</span>
             </a>
-
-            <a href="01_Emam_LailaKarimMohamedAbdelmeguid/type/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">type</div>
-            </a>
-
-        </div>
-    </section>
-
-    <section class="student-section">
+            <a href="students/01_Emam_Laila/type/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">type</span>
+            </a>        </div>
+    </section>    <section>
         <h2>05 Fischer Franziska</h2>
         <div class="grid">
-
-            <a href="05_Fischer_Franziska/06.01 MODEL/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">06.01 MODEL</div>
-            </a>
-
-        </div>
-    </section>
-
-    <section class="student-section">
+            <a href="students/05_Fischer_Franziska/06.01 MODEL/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">06.01 MODEL</span>
+            </a>        </div>
+    </section>    <section>
         <h2>06 Ghirardi Andrea</h2>
         <div class="grid">
-
-            <a href="06_Ghirardi_Andrea/BrushV2_Script/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">BrushV2 Script</div>
+            <a href="students/06_Ghirardi_Andrea/BrushV2_Script/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">BrushV2 Script</span>
             </a>
-
-            <a href="06_Ghirardi_Andrea/GIFV2_Script/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">GIFV2 Script</div>
+            <a href="students/06_Ghirardi_Andrea/GIFV2_Script/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">GIFV2 Script</span>
             </a>
-
-            <a href="06_Ghirardi_Andrea/RasterV2_Script/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">RasterV2 Script</div>
+            <a href="students/06_Ghirardi_Andrea/RasterV2_Script/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">RasterV2 Script</span>
             </a>
-
-            <a href="06_Ghirardi_Andrea/TypeV2_Script/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">TypeV2 Script</div>
-            </a>
-
-        </div>
-    </section>
-
-    <section class="student-section">
-        <h2>07 Glüsing FynnLucas</h2>
+            <a href="students/06_Ghirardi_Andrea/TypeV2_Script/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">TypeV2 Script</span>
+            </a>        </div>
+    </section>    <section>
+        <h2>07 Glüsing FynnLucas</h2>
         <div class="grid">
-
-            <a href="07_Glüsing_FynnLucas/Brush_Tool_SketchJS_FGlüsing/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Brush Tool SketchJS FGlüsing</div>
+            <a href="students/07_Glüsing_FynnLucas/Brush_Tool_SketchJS_FGlüsing/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Brush Tool SketchJS FGlüsing</span>
             </a>
-
-            <a href="07_Glüsing_FynnLucas/GIF_Tool_FGluesing/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">GIF Tool FGluesing</div>
+            <a href="students/07_Glüsing_FynnLucas/GIF_Tool_FGluesing/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">GIF Tool FGluesing</span>
             </a>
-
-            <a href="07_Glüsing_FynnLucas/Grid_Tool_SketchJS_FGlüsing/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Grid Tool SketchJS FGlüsing</div>
+            <a href="students/07_Glüsing_FynnLucas/Grid_Tool_SketchJS_FGlüsing/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Grid Tool SketchJS FGlüsing</span>
             </a>
-
-            <a href="07_Glüsing_FynnLucas/Happy Orb Html/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Happy Orb Html</div>
+            <a href="students/07_Glüsing_FynnLucas/Happy Orb Html/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Happy Orb Html</span>
             </a>
-
-            <a href="07_Glüsing_FynnLucas/Happy Orb Java script/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Happy Orb Java script</div>
+            <a href="students/07_Glüsing_FynnLucas/Happy Orb Java script/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Happy Orb Java script</span>
             </a>
-
-            <a href="07_Glüsing_FynnLucas/Text_Tool02_HTML_FGlüsing/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Text Tool02 HTML FGlüsing</div>
+            <a href="students/07_Glüsing_FynnLucas/Text_Tool02_HTML_FGlüsing/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Text Tool02 HTML FGlüsing</span>
             </a>
-
-            <a href="07_Glüsing_FynnLucas/Text_Tool02_sketchJS_FGlüsing/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Text Tool02 sketchJS FGlüsing</div>
-            </a>
-
-        </div>
-    </section>
-
-    <section class="student-section">
+            <a href="students/07_Glüsing_FynnLucas/Text_Tool02_sketchJS_FGlüsing/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Text Tool02 sketchJS FGlüsing</span>
+            </a>        </div>
+    </section>    <section>
         <h2>08 Gomizel Sara</h2>
         <div class="grid">
-
-            <a href="08_Gomizel_Sara/animation/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">animation</div>
+            <a href="students/08_Gomizel_Sara/animation/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">animation</span>
             </a>
-
-            <a href="08_Gomizel_Sara/brush-final/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">brush final</div>
+            <a href="students/08_Gomizel_Sara/brush-final/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">brush final</span>
             </a>
-
-            <a href="08_Gomizel_Sara/gira/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">gira</div>
+            <a href="students/08_Gomizel_Sara/gira/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">gira</span>
             </a>
-
-            <a href="08_Gomizel_Sara/raster- polished/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">raster  polished</div>
+            <a href="students/08_Gomizel_Sara/raster- polished/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">raster  polished</span>
             </a>
-
-            <a href="08_Gomizel_Sara/type-final/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">type final</div>
-            </a>
-
-        </div>
-    </section>
-
-    <section class="student-section">
+            <a href="students/08_Gomizel_Sara/type-final/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">type final</span>
+            </a>        </div>
+    </section>    <section>
         <h2>09 Govetto Anna</h2>
         <div class="grid">
-
-            <a href="09_Govetto_Anna/gif.tool/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">gif.tool</div>
-            </a>
-
-        </div>
-    </section>
-
-    <section class="student-section">
-        <h2>10 Grünewald MaudAnnaLuise</h2>
+            <a href="students/09_Govetto_Anna/gif.tool/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">gif.tool</span>
+            </a>        </div>
+    </section>    <section>
+        <h2>10 Grünewald MaudAnnaLuise</h2>
         <div class="grid">
-
-            <a href="10_Grünewald_MaudAnnaLuise/3d model/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">3d model</div>
+            <a href="students/10_Grünewald_MaudAnnaLuise/3d model/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">3d model</span>
             </a>
-
-            <a href="10_Grünewald_MaudAnnaLuise/brush tool/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">brush tool</div>
+            <a href="students/10_Grünewald_MaudAnnaLuise/brush tool/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">brush tool</span>
             </a>
-
-            <a href="10_Grünewald_MaudAnnaLuise/gif tool/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">gif tool</div>
+            <a href="students/10_Grünewald_MaudAnnaLuise/gif tool/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">gif tool</span>
             </a>
-
-            <a href="10_Grünewald_MaudAnnaLuise/raster tool/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">raster tool</div>
+            <a href="students/10_Grünewald_MaudAnnaLuise/raster tool/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">raster tool</span>
             </a>
-
-            <a href="10_Grünewald_MaudAnnaLuise/type tool/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">type tool</div>
-            </a>
-
-        </div>
-    </section>
-
-    <section class="student-section">
+            <a href="students/10_Grünewald_MaudAnnaLuise/type tool/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">type tool</span>
+            </a>        </div>
+    </section>    <section>
         <h2>11 Jonker MeesDante</h2>
         <div class="grid">
-
-            <a href="11_Jonker_MeesDante/Brushtool_VC 2/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Brushtool VC 2</div>
+            <a href="students/11_Jonker_MeesDante/Brushtool_VC 2/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Brushtool VC 2</span>
             </a>
-
-            <a href="11_Jonker_MeesDante/Giftool_VC/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Giftool VC</div>
+            <a href="students/11_Jonker_MeesDante/Giftool_VC/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Giftool VC</span>
             </a>
-
-            <a href="11_Jonker_MeesDante/Mortalcombat_2.0/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Mortalcombat 2.0</div>
+            <a href="students/11_Jonker_MeesDante/Mortalcombat_2.0/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Mortalcombat 2.0</span>
             </a>
-
-            <a href="11_Jonker_MeesDante/rastertool_fixed 2/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">rastertool fixed 2</div>
+            <a href="students/11_Jonker_MeesDante/rastertool_fixed 2/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">rastertool fixed 2</span>
             </a>
-
-            <a href="11_Jonker_MeesDante/sword_drop/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">sword drop</div>
+            <a href="students/11_Jonker_MeesDante/sword_drop/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">sword drop</span>
             </a>
-
-            <a href="11_Jonker_MeesDante/sword_stckman/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">sword stckman</div>
+            <a href="students/11_Jonker_MeesDante/sword_stckman/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">sword stckman</span>
             </a>
-
-            <a href="11_Jonker_MeesDante/sword_textexplode/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">sword textexplode</div>
+            <a href="students/11_Jonker_MeesDante/sword_textexplode/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">sword textexplode</span>
             </a>
-
-            <a href="11_Jonker_MeesDante/sword_turning/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">sword turning</div>
+            <a href="students/11_Jonker_MeesDante/sword_turning/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">sword turning</span>
             </a>
-
-            <a href="11_Jonker_MeesDante/type_shit1/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">type shit1</div>
+            <a href="students/11_Jonker_MeesDante/type_shit1/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">type shit1</span>
             </a>
-
-            <a href="11_Jonker_MeesDante/type_tool2/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">type tool2</div>
-            </a>
-
-        </div>
-    </section>
-
-    <section class="student-section">
+            <a href="students/11_Jonker_MeesDante/type_tool2/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">type tool2</span>
+            </a>        </div>
+    </section>    <section>
         <h2>13 Kohlschitter Emanuel</h2>
         <div class="grid">
-
-            <a href="13_Kohlschitter_Emanuel/Brush/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Brush</div>
+            <a href="students/13_Kohlschitter_Emanuel/Brush/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Brush</span>
             </a>
-
-            <a href="13_Kohlschitter_Emanuel/Gif/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Gif</div>
+            <a href="students/13_Kohlschitter_Emanuel/Gif/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Gif</span>
             </a>
-
-            <a href="13_Kohlschitter_Emanuel/Raster/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Raster</div>
+            <a href="students/13_Kohlschitter_Emanuel/Raster/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Raster</span>
             </a>
-
-            <a href="13_Kohlschitter_Emanuel/Typography/index.html" target="_blank" class="card">
-                <div class="card-icon">🎨</div>
-                <div class="card-title">Typography</div>
-            </a>
-
-        </div>
+            <a href="students/13_Kohlschitter_Emanuel/Typography/index.html" target="_blank" class="card">
+                <span class="icon">🎨</span>
+                <span class="title">Typography</span>
+            </a>        </div>
     </section>
-
 </main>
-
-<footer>
-    Generated by Antigravity Agent
-</footer>
-
+<footer>Generated by Auto-Update Script</footer>
 </body>
 </html>
